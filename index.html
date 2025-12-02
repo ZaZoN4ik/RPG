@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Monster Clicker RPG</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        :root {
+            --bg-color: #09090b;
+            --card-bg: #18181b;
+            --text-color: #e4e4e7;
+            --accent-color: #f59e0b; /* Amber */
+            --danger-color: #ef4444; /* Red */
+            --success-color: #22c55e; /* Green */
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* --- ВЕРХНЯЯ ПАНЕЛЬ --- */
+        .header {
+            background: rgba(24, 24, 27, 0.9);
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #27272a;
+            backdrop-filter: blur(10px);
+            z-index: 100;
+        }
+
+        .resource-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .resource-label { font-size: 10px; color: #71717a; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        .resource-val { font-size: 16px; font-weight: 800; color: var(--accent-color); }
+        .lvl-badge {
+            background: linear-gradient(135deg, #ef4444, #b91c1c);
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-weight: 800;
+            font-size: 14px;
+            box-shadow: 0 2px 10px rgba(239, 68, 68, 0.3);
+        }
+
+        /* --- АРЕНА (Центр) --- */
+        .arena {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            background: radial-gradient(circle at center, #27272a 0%, #09090b 70%);
+        }
+
+        /* Монстр */
+        .monster-wrapper {
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.05s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .monster-wrapper:active { transform: scale(0.9); }
+
+        .monster-emoji {
+            font-size: 110px;
+            filter: drop-shadow(0 0 30px rgba(0,0,0,0.5));
+            animation: breathe 3s infinite ease-in-out;
+            z-index: 2;
+        }
+
+        /* Полоска здоровья */
+        .hp-container {
+            width: 70%;
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .hp-bar-bg {
+            background: #27272a;
+            height: 14px;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 2px solid #3f3f46;
+            position: relative;
+        }
+
+        .hp-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ef4444, #f87171);
+            width: 100%;
+            transition: width 0.1s linear;
+        }
+
+        .hp-text {
+            margin-top: 6px;
+            font-size: 12px;
+            color: #a1a1aa;
+            font-weight: 600;
+        }
+
+        .monster-name {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: white;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+
+        /* --- НИЖНЯЯ ПАНЕЛЬ (Магазин) --- */
+        .footer {
+            background: var(--card-bg);
+            height: 35%;
+            border-top-left-radius: 20px;
+            border-top-right-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .section-title {
+            font-size: 14px;
+            color: #71717a;
+            margin-bottom: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .upgrades-list {
+            flex: 1;
+            overflow-y: auto;
+            padding-bottom: 20px;
+        }
+
+        /* Кнопки улучшений */
+        .upgrade-card {
+            background: #27272a;
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .upgrade-card:active { transform: scale(0.98); background: #3f3f46; }
+
+        .upgrade-card.disabled {
+            opacity: 0.5;
+            filter: grayscale(1);
+        }
+
+        .icon { font-size: 24px; margin-right: 12px; background: #3f3f46; padding: 8px; border-radius: 10px; }
+
+        .info { flex: 1; }
+        .name { font-weight: bold; font-size: 14px; display: block; }
+        .desc { font-size: 11px; color: #a1a1aa; display: block; margin-top: 2px; }
+
+        .price-btn {
+            background: var(--accent-color);
+            color: #000;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-weight: 800;
+            font-size: 12px;
+            text-align: center;
+            min-width: 60px;
+        }
+
+        /* --- АНИМАЦИИ --- */
+        @keyframes breathe {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        @keyframes floatUp {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-80px) scale(1.5); }
+        }
+
+        .damage-number {
+            position: absolute;
+            color: white;
+            font-weight: 900;
+            font-size: 28px;
+            pointer-events: none;
+            animation: floatUp 0.6s ease-out forwards;
+            text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; /* Обводка */
+            z-index: 10;
+        }
+
+        .crit {
+            color: #ef4444;
+            font-size: 40px;
+        }
+
+        /* Скроллбар */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: #52525b; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="lvl-badge">LVL <span id="ui-level">1</span></div>
+        <div class="resource-box">
+            <span class="resource-label">DPS (Урон/сек)</span>
+            <span class="resource-val" style="color: #fff">⚔️ <span id="ui-dps">0</span></span>
+        </div>
+        <div class="resource-box">
+            <span class="resource-label">Золото</span>
+            <span class="resource-val">💰 <span id="ui-gold">0</span></span>
+        </div>
+    </div>
+
+    <div class="arena" id="arena-container">
+        <div class="monster-name" id="ui-monster-name">Слизень</div>
+
+        <div class="monster-wrapper" id="monster-click-zone">
+            <div class="monster-emoji" id="ui-monster-emoji">🦠</div>
+        </div>
+
+        <div class="hp-container">
+            <div class="hp-bar-bg">
+                <div class="hp-bar-fill" id="ui-hp-bar"></div>
+            </div>
+            <div class="hp-text"><span id="ui-hp-cur">10</span> / <span id="ui-hp-max">10</span> HP</div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <div class="section-title">Магазин улучшений</div>
+        <div class="upgrades-list">
+
+            <div class="upgrade-card" id="btn-upg-dmg" onclick="buyUpgrade('clickDmg')">
+                <div class="icon">⚔️</div>
+                <div class="info">
+                    <span class="name">Острый меч</span>
+                    <span class="desc">+1 к урону за клик</span>
+                </div>
+                <div class="price-btn" id="price-clickDmg">10</div>
+            </div>
+
+            <div class="upgrade-card" id="btn-upg-auto" onclick="buyUpgrade('autoDmg')">
+                <div class="icon">🤖</div>
+                <div class="info">
+                    <span class="name">Наемник</span>
+                    <span class="desc">+2 урона в секунду</span>
+                </div>
+                <div class="price-btn" id="price-autoDmg">50</div>
+            </div>
+
+            <div class="upgrade-card" id="btn-upg-crit" onclick="buyUpgrade('critChance')">
+                <div class="icon">⚡</div>
+                <div class="info">
+                    <span class="name">Удача</span>
+                    <span class="desc">+5% шанс крит. удара</span>
+                </div>
+                <div class="price-btn" id="price-critChance">100</div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // --- 1. ИНИЦИАЛИЗАЦИЯ TELEGRAM ---
+        const tg = window.Telegram.WebApp;
+        tg.expand(); // На весь экран
+        tg.disableVerticalSwipes(); // Запрет свайпов (чтобы не закрыть случайно)
+
+        // --- 2. ДАННЫЕ ИГРЫ (CONFIG) ---
+        const GAME_DATA = {
+            player: {
+                gold: 0,
+                clickDmg: 1,
+                autoDmg: 0,
+                critChance: 0,
+                level: 1
+            },
+            currentMonster: {
+                hp: 15,
+                maxHp: 15,
+                id: 0
+            },
+            prices: {
+                clickDmg: 10,
+                autoDmg: 50,
+                critChance: 100
+            }
+        };
+
+        const MONSTERS_DB = [
+            { name: "Слизень", emoji: "🦠" },
+            { name: "Гоблин", emoji: "👹" },
+            { name: "Скелет", emoji: "💀" },
+            { name: "Орк", emoji: "👺" },
+            { name: "Волк", emoji: "🐺" },
+            { name: "Призрак", emoji: "👻" },
+            { name: "Вампир", emoji: "🧛" },
+            { name: "Дракон", emoji: "🐲" },
+            { name: "Демон", emoji: "😈" },
+            { name: "Ктулху", emoji: "🐙" }
+        ];
+
+        // --- 3. ЗАГРУЗКА / СОХРАНЕНИЕ ---
+        function loadGame() {
+            const saved = localStorage.getItem('rpg_save_v1');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                GAME_DATA.player = parsed.player;
+                GAME_DATA.prices = parsed.prices;
+                // Монстра сбрасываем или оставляем, лучше генерировать нового на основе уровня
+                generateMonster(false);
+            } else {
+                generateMonster(true);
+            }
+            updateUI();
+        }
+
+        function saveGame() {
+            localStorage.setItem('rpg_save_v1', JSON.stringify({
+                player: GAME_DATA.player,
+                prices: GAME_DATA.prices
+            }));
+        }
+
+        // --- 4. ЛОГИКА ИГРЫ ---
+
+        function generateMonster(resetHp) {
+            // Монстр зависит от уровня игрока
+            const index = (GAME_DATA.player.level - 1) % MONSTERS_DB.length;
+            const template = MONSTERS_DB[index];
+
+            // Скалирование HP: 15 * 1.3 ^ (level-1)
+            const newMaxHp = Math.floor(15 * Math.pow(1.25, GAME_DATA.player.level - 1));
+
+            GAME_DATA.currentMonster.maxHp = newMaxHp;
+            if (resetHp) GAME_DATA.currentMonster.hp = newMaxHp;
+
+            // UI
+            document.getElementById('ui-monster-emoji').textContent = template.emoji;
+            document.getElementById('ui-monster-name').textContent = `Lvl ${GAME_DATA.player.level} ${template.name}`;
+        }
+
+        // Обработка клика
+        document.getElementById('monster-click-zone').addEventListener('touchstart', (e) => {
+            // Предотвращаем зум и стандартные действия
+            e.preventDefault();
+            // Поддержка мультитача (все пальцы наносят урон)
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                handleHit(e.changedTouches[i].clientX, e.changedTouches[i].clientY);
+            }
+        }, { passive: false });
+
+        // Для мышки (тестирование на ПК)
+        document.getElementById('monster-click-zone').addEventListener('mousedown', (e) => {
+            handleHit(e.clientX, e.clientY);
+        });
+
+        function handleHit(x, y) {
+            // 1. Расчет урона
+            let dmg = GAME_DATA.player.clickDmg;
+            let isCrit = Math.random() * 100 < GAME_DATA.player.critChance;
+            if (isCrit) dmg *= 2;
+
+            applyDamage(dmg);
+
+            // 2. Визуал
+            spawnDamageNumber(x, y, dmg, isCrit);
+            animateMonster();
+
+            // 3. Вибрация (Haptic)
+            if (isCrit) tg.HapticFeedback.notificationOccurred('success');
+            else tg.HapticFeedback.impactOccurred('medium');
+        }
+
+        function applyDamage(amount) {
+            GAME_DATA.currentMonster.hp -= amount;
+
+            if (GAME_DATA.currentMonster.hp <= 0) {
+                GAME_DATA.currentMonster.hp = 0;
+                onMonsterDeath();
+            }
+            updateUI();
+        }
+
+        function onMonsterDeath() {
+            // Награда: 2 + 10% от макс HP
+            const goldReward = Math.floor(2 + (GAME_DATA.currentMonster.maxHp * 0.1));
+            GAME_DATA.player.gold += goldReward;
+            GAME_DATA.player.level++;
+
+            // Сброс монстра
+            generateMonster(true);
+            saveGame();
+
+            // Эффект
+            tg.HapticFeedback.notificationOccurred('success');
+        }
+
+        function buyUpgrade(type) {
+            const price = GAME_DATA.prices[type];
+            if (GAME_DATA.player.gold >= price) {
+                // Покупка
+                GAME_DATA.player.gold -= price;
+
+                // Эффект покупки
+                if (type === 'clickDmg') {
+                    GAME_DATA.player.clickDmg += 1;
+                    GAME_DATA.prices.clickDmg = Math.ceil(price * 1.5);
+                } else if (type === 'autoDmg') {
+                    GAME_DATA.player.autoDmg += 2;
+                    GAME_DATA.prices.autoDmg = Math.ceil(price * 1.4);
+                } else if (type === 'critChance') {
+                    GAME_DATA.player.critChance += 5;
+                    GAME_DATA.prices.critChance = Math.ceil(price * 2);
+                }
+
+                saveGame();
+                updateUI();
+                tg.HapticFeedback.selectionChanged();
+            } else {
+                tg.HapticFeedback.notificationOccurred('error');
+            }
+        }
+
+        // Авто-урон (каждую секунду)
+        setInterval(() => {
+            if (GAME_DATA.player.autoDmg > 0 && GAME_DATA.currentMonster.hp > 0) {
+                applyDamage(GAME_DATA.player.autoDmg);
+                // Маленькая визуализация авто-урона (центр экрана)
+                // spawnDamageNumber(window.innerWidth/2, window.innerHeight/2 - 50, GAME_DATA.player.autoDmg, false);
+            }
+        }, 1000);
+
+        // --- 5. UI МЕНЕДЖЕР ---
+
+        function updateUI() {
+            // Шапка
+            document.getElementById('ui-gold').textContent = GAME_DATA.player.gold;
+            document.getElementById('ui-dps').textContent = GAME_DATA.player.autoDmg;
+            document.getElementById('ui-level').textContent = GAME_DATA.player.level;
+
+            // HP бар
+            const hpPercent = (GAME_DATA.currentMonster.hp / GAME_DATA.currentMonster.maxHp) * 100;
+            document.getElementById('ui-hp-bar').style.width = `${hpPercent}%`;
+            document.getElementById('ui-hp-cur').textContent = GAME_DATA.currentMonster.hp;
+            document.getElementById('ui-hp-max').textContent = GAME_DATA.currentMonster.maxHp;
+
+            // Цены кнопок и доступность
+            updateBtnState('btn-upg-dmg', 'price-clickDmg', 'clickDmg');
+            updateBtnState('btn-upg-auto', 'price-autoDmg', 'autoDmg');
+            updateBtnState('btn-upg-crit', 'price-critChance', 'critChance');
+        }
+
+        function updateBtnState(btnId, priceId, type) {
+            const price = GAME_DATA.prices[type];
+            const btn = document.getElementById(btnId);
+            document.getElementById(priceId).textContent = price;
+
+            if (GAME_DATA.player.gold >= price) {
+                btn.classList.remove('disabled');
+            } else {
+                btn.classList.add('disabled');
+            }
+        }
+
+        // Анимации
+        function spawnDamageNumber(x, y, dmg, isCrit) {
+            const el = document.createElement('div');
+            el.textContent = dmg;
+            el.className = 'damage-number';
+            if (isCrit) el.classList.add('crit');
+
+            // Рандомный разброс
+            const offsetX = (Math.random() - 0.5) * 40;
+            el.style.left = `${x + offsetX}px`;
+            el.style.top = `${y - 50}px`;
+
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 600);
+        }
+
+        function animateMonster() {
+            const m = document.getElementById('ui-monster-emoji');
+            m.style.transform = "scale(0.85)";
+            setTimeout(() => m.style.transform = "scale(1)", 100);
+        }
+
+        // Старт
+        loadGame();
+    </script>
+</body>
+</html>
