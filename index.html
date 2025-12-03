@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Realm of Shadows</title>
+    <title>Realm of Shadows: Ascension</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
@@ -11,7 +11,7 @@
 <body>
 
     <div class="header">
-        <div class="game-title">❖ Realm of Shadows ❖</div>
+        <div class="game-title">❖ Shadow Ascension ❖</div>
         <div class="top-stats">
             <div class="top-stat-box">
                 <span class="icon">⚔️</span>
@@ -31,19 +31,19 @@
     <div class="content">
 
         <div id="view-battle" class="tab-view active">
-
             <div class="battle-header">
                 <div class="lvl-badge">LEVEL <span id="ui-lvl">1</span></div>
                 <div class="kills-info" id="ui-kills-info">Kills: 0/10</div>
             </div>
 
             <div id="boss-timer-box" class="boss-timer-box">
-                <div style="font-size:12px; font-weight:900; color:#ef4444; letter-spacing:1px; margin-bottom:5px;">⚠️ BOSS FIGHT ⚠️</div>
+                <div class="boss-title">⚠️ BOSS FIGHT ⚠️</div>
                 <div class="timer-bg"><div class="timer-fill" id="boss-timer-fill"></div></div>
             </div>
 
             <div class="monster-wrapper" onclick="gameLogic.onTap(event)">
                 <div class="monster" id="monster">👾</div>
+                <div class="crit-flash" id="crit-flash"></div>
             </div>
 
             <div class="hp-bar-box">
@@ -57,59 +57,67 @@
         </div>
 
         <div id="view-allies" class="tab-view">
-            <div class="tab-header">Темный ритуал</div>
-            <div id="allies-list" class="list-container">
-                </div>
+            <div class="tab-header">Армия Тьмы</div>
+            <div id="allies-list" class="list-container"></div>
         </div>
 
         <div id="view-hero" class="tab-view">
             <div class="tab-header">Экипировка</div>
 
-            <div class="equipment-slots">
+            <div class="equipment-grid">
                 <div class="slot-wrapper">
-                    <div class="slot-label">Оружие</div>
-                    <div class="equip-slot" id="slot-weapon" onclick="gameLogic.unequip('weapon')">🗡️</div>
-                    <div class="equip-stat" id="stat-weapon">+0</div>
+                    <div class="equip-slot" id="slot-weapon" onclick="gameLogic.unequip('weapon')">⚔️</div>
+                    <div class="equip-stat" id="stat-weapon">+0 DMG</div>
                 </div>
                 <div class="slot-wrapper">
-                    <div class="slot-label">Броня</div>
+                    <div class="equip-slot" id="slot-helmet" onclick="gameLogic.unequip('helmet')">🪖</div>
+                    <div class="equip-stat" id="stat-helmet">+0% Crit</div>
+                </div>
+                <div class="slot-wrapper">
                     <div class="equip-slot" id="slot-armor" onclick="gameLogic.unequip('armor')">🛡️</div>
-                    <div class="equip-stat" id="stat-armor">+0</div>
+                    <div class="equip-stat" id="stat-armor">+0 DPS</div>
+                </div>
+                <div class="slot-wrapper">
+                    <div class="equip-slot" id="slot-gloves" onclick="gameLogic.unequip('gloves')">🧤</div>
+                    <div class="equip-stat" id="stat-gloves">+0% CDmg</div>
+                </div>
+                <div class="slot-wrapper">
+                    <div class="equip-slot" id="slot-boots" onclick="gameLogic.unequip('boots')">👢</div>
+                    <div class="equip-stat" id="stat-boots">+0% Gold</div>
+                </div>
+                <div class="slot-wrapper">
+                    <div class="equip-slot" id="slot-ring" onclick="gameLogic.unequip('ring')">💍</div>
+                    <div class="equip-stat" id="stat-ring">+0% Spd</div>
                 </div>
             </div>
 
-            <div class="tab-header" style="margin-top:10px;">Сумка</div>
-            <div class="inventory-grid" id="inventory-box">
-                </div>
-        </div>
+            <div class="stats-summary" id="stats-summary">
+                Крит: 0% | Золото: x1.0
+            </div>
 
+            <div class="tab-header" style="margin-top:15px;">Сумка</div>
+            <div class="inventory-grid" id="inventory-box"></div>
+        </div>
     </div>
 
     <div id="item-modal" class="modal">
         <div class="modal-content">
             <div id="modal-title" class="modal-title">Предмет</div>
+            <div id="modal-type" class="modal-subtitle">Тип</div>
             <div id="modal-stats" class="modal-stats">...</div>
+
             <div class="modal-actions">
                 <button class="btn equip" onclick="gameLogic.actionEquip()">НАДЕТЬ</button>
                 <button class="btn sell" onclick="gameLogic.actionSell()">РАЗБИТЬ (<span id="modal-price">0</span>💎)</button>
             </div>
-            <button class="btn close" onclick="document.getElementById('item-modal').style.display='none'">Отмена</button>
+            <button class="btn close" onclick="document.getElementById('item-modal').style.display='none'">Закрыть</button>
         </div>
     </div>
 
     <div class="nav-bar">
-        <button class="nav-btn active" onclick="ui.switchTab('battle', this)">
-            <span style="font-size:18px;">⚔️</span>
-            Битва
-        </button>
-        <button class="nav-btn" onclick="ui.switchTab('allies', this)">
-            <span style="font-size:18px;">🏰</span>
-            Цитадель
-        </button>
-        <button class="nav-btn" onclick="ui.switchTab('hero', this)">
-            <span style="font-size:18px;">👤</span>
-            Герой
-        </button>
+        <button class="nav-btn active" onclick="ui.switchTab('battle', this)">⚔️<br>Битва</button>
+        <button class="nav-btn" onclick="ui.switchTab('allies', this)">🏰<br>Армия</button>
+        <button class="nav-btn" onclick="ui.switchTab('hero', this)">👤<br>Герой</button>
     </div>
 
     <script src="script.js"></script>
