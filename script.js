@@ -504,8 +504,13 @@ const gameLogic = {
             game.gold = core.gold || 0;
             game.lvl = core.lvl || 1;
             game.kills = core.kills || 0;
+
+            // Восстанавливаем экипировку, если её нет - создаем пустую
             game.equipment = core.equipment || { weapon: null, armor: null, helmet: null, gloves: null, boots: null, ring: null };
-            game.allies = core.allies || game.allies;
+
+            // Восстанавливаем союзников.
+            // ВАЖНО: Если это старый сейв, объединяем его с новыми ключами, чтобы не было пустоты
+            game.allies = { ...game.allies, ...(core.allies || {}) };
 
             if (core.stats) {
                 battle.hp = core.stats.hp || battle.maxHp;
@@ -524,38 +529,28 @@ const gameLogic = {
                 if (game.equipment[k]) restoreRarity(game.equipment[k]);
             });
 
-            // Обновляем UI
-            this.calcStats();
-            ui.renderAllies();
-            ui.renderInventory();
-            ui.updateHeader();
-            ui.updateBars();
+            // Применяем изменения сразу после загрузки данных
+            this.updateAllUI();
         };
 
         // 1. Пробуем загрузить из LocalStorage
         const localData = localStorage.getItem('shadow_rpg_full');
-        let localLoaded = false;
         if (localData) {
             try {
                 const parsed = JSON.parse(localData);
                 applyData(parsed.core, parsed.inventory);
-                localLoaded = true;
                 console.log("Loaded from LocalStorage");
             } catch(e) { console.error(e); }
         }
 
-        // 2. Пробуем загрузить из Cloud (если там новее или локалки нет)
+        // 2. Пробуем загрузить из Cloud
         if (tg.CloudStorage) {
             tg.CloudStorage.getItem('rpg_core', (err, coreVal) => {
                 if (!err && coreVal) {
                     const core = JSON.parse(coreVal);
-
-                    // Если локалки нет, или timestamp в облаке новее (упрощенно: просто грузим, если есть)
-                    // Для полноценной синхронизации нужно сравнивать core.timestamp
-
                     const chunksCount = core.invChunksCount || 0;
+
                     if (chunksCount > 0) {
-                        // Собираем ключи страниц
                         let keys = [];
                         for(let i=0; i < chunksCount; i++) keys.push(`rpg_inv_${i}`);
 
@@ -575,9 +570,18 @@ const gameLogic = {
                 }
             });
         }
-
-        // Первый спавн
+        // 🔥 ФИКС: Принудительно рисуем интерфейс, даже если сейва нет или он грузится долго
+        this.updateAllUI();
         this.spawnMonster();
+    },
+
+    // Добавь эту вспомогательную функцию в gameLogic (внутри gameLogic, перед load или после)
+    updateAllUI: function() {
+        this.calcStats();
+        ui.renderAllies();     // <--- Вот это вернет армию на экран
+        ui.renderInventory();
+        ui.updateHeader();
+        ui.updateBars();
     }
 };
 
