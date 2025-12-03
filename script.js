@@ -2,40 +2,40 @@ const tg = window.Telegram.WebApp;
 tg.expand();
 tg.disableVerticalSwipes();
 
-// --- КОНФИГУРАЦИЯ ---
+// --- КОНФИГУРАЦИЯ (Dark Fantasy) ---
 const CONFIG = {
     allies: [
-        { id: 'militia', name: 'Ополченец', baseDps: 2, cost: 50, icon: '🧑‍🌾' },
-        { id: 'dog', name: 'Боевой Пес', baseDps: 8, cost: 150, icon: '🐕' },
-        { id: 'archer', name: 'Лучник', baseDps: 25, cost: 450, icon: '🏹' },
-        { id: 'mercenary', name: 'Наемник', baseDps: 60, cost: 1200, icon: '🗡️' },
-        { id: 'mage', name: 'Маг Огня', baseDps: 150, cost: 3500, icon: '🔥' },
-        { id: 'knight', name: 'Паладин', baseDps: 400, cost: 10000, icon: '🛡️' },
-        { id: 'dragon', name: 'Дракончик', baseDps: 1000, cost: 50000, icon: '🐲' }
+        { id: 'skeleton', name: 'Скелет', baseDps: 2, cost: 50, icon: '💀' },
+        { id: 'ghost', name: 'Призрак', baseDps: 8, cost: 150, icon: '👻' },
+        { id: 'acolyte', name: 'Послушник', baseDps: 25, cost: 450, icon: '🧛' },
+        { id: 'demon', name: 'Бес', baseDps: 60, cost: 1200, icon: '👿' },
+        { id: 'necromancer', name: 'Некромант', baseDps: 150, cost: 3500, icon: '🔮' },
+        { id: 'lich', name: 'Лич', baseDps: 400, cost: 10000, icon: '🧟' },
+        { id: 'shadow_dragon', name: 'Теневой Змей', baseDps: 1000, cost: 50000, icon: '🐉' }
     ],
     itemNames: {
         prefixes: [
-            "Сломанный", "Ржавый", "Ветхий", "Деревянный", "Тупой",
-            "Железный", "Стальной", "Бронзовый", "Закаленный", "Острый",
-            "Мифриловый", "Адамантиевый", "Рунический", "Эльфийский", "Гномий",
+            "Сломанный", "Ржавый", "Ветхий", "Костяной", "Тупой",
+            "Железный", "Стальной", "Темный", "Закаленный", "Острый",
+            "Мифриловый", "Рунический", "Эльфийский", "Гномий",
             "Пылающий", "Ледяной", "Ядовитый", "Грозовой", "Вампирский",
             "Проклятый", "Святой", "Древний", "Эфирный", "Призрачный",
             "Космический", "Божественный", "Демонический", "Пожиратель"
         ],
         weapons: [
-            "Нож", "Кинжал", "Кортик",
-            "Меч", "Палаш", "Гладиус", "Катана", "Клеймор",
-            "Топор", "Секира", "Бердыш",
-            "Молот", "Кувалда", "Булава", "Моргенштерн",
+            "Нож", "Кинжал", "Ритуальный нож",
+            "Меч", "Палаш", "Клинок", "Катана", "Клеймор",
+            "Топор", "Секира", "Жнец",
+            "Молот", "Кувалда", "Булава",
             "Копье", "Трезубец", "Алебарда",
             "Посох", "Жезл", "Скипетр",
             "Коса", "Серп"
         ],
         armors: [
             "Шлем", "Капюшон", "Корона", "Маска", "Обруч",
-            "Нагрудник", "Кираса", "Кольчуга", "Туника", "Мантия", "Жилет",
+            "Нагрудник", "Кираса", "Кольчуга", "Туника", "Мантия",
             "Перчатки", "Наручи", "Рукавицы",
-            "Сапоги", "Поножи", "Сандалии",
+            "Сапоги", "Поножи",
             "Щит", "Баклер", "Тарч",
             "Плащ", "Накидка", "Амулет"
         ]
@@ -49,7 +49,8 @@ let game = {
     kills: 0,
     inventory: [],
     equipment: { weapon: null, armor: null },
-    allies: { militia: 0, dog: 0, archer: 0, mercenary: 0, mage: 0, knight: 0, dragon: 0 }
+    // Обновленные ID союзников
+    allies: { skeleton: 0, ghost: 0, acolyte: 0, demon: 0, necromancer: 0, lich: 0, shadow_dragon: 0 }
 };
 
 let battle = {
@@ -67,9 +68,7 @@ let selectedItem = null;
 // --- ЛОГИКА ИГРЫ ---
 const gameLogic = {
     init: function() {
-        this.load(); // Загрузка и первичная инициализация UI внутри
-
-        // Запуск циклов
+        this.load();
         setInterval(() => this.autoDamage(), 1000);
         setInterval(() => this.save(), 30000);
     },
@@ -85,7 +84,8 @@ const gameLogic = {
             ui.setMonster("👹", true);
             this.startBossTimer();
         } else {
-            const mobs = ["🦠","🕷️","🐺","🦇","🦂","🐍","💀"];
+            // Более страшные мобы
+            const mobs = ["👁️","🕷️","🦂","🦇","🧟","🧞","🧛","🦅","🐺","👺"];
             ui.setMonster(mobs[Math.floor(Math.random()*mobs.length)], false);
         }
 
@@ -114,7 +114,7 @@ const gameLogic = {
         battle.hp = battle.maxHp;
         ui.updateHp();
         tg.HapticFeedback.notificationOccurred('error');
-        tg.showAlert("☠️ БОСС ПОБЕДИЛ!\nОн восстановил здоровье. Попробуй прокачаться!");
+        tg.showAlert("🌑 Тьма поглотила вас...\nБосс слишком силен. Нужна экипировка получше!");
         this.startBossTimer();
     },
 
@@ -222,7 +222,7 @@ const gameLogic = {
 
         game.inventory.push(item);
         ui.renderInventory();
-        tg.showAlert(`🎁 Дроп!\n${item.name} (+${val})`);
+        tg.showAlert(`🔮 Артефакт!\n${item.name} (Сила: +${val})`);
     },
 
     buyAlly: function(id) {
@@ -280,11 +280,12 @@ const gameLogic = {
     },
 
     save: function() {
-        tg.CloudStorage.setItem('shadow_rpg_v1', JSON.stringify(game));
+        tg.CloudStorage.setItem('shadow_rpg_v2', JSON.stringify(game));
     },
 
     load: function() {
-        tg.CloudStorage.getItem('shadow_rpg_v1', (err, val) => {
+        // Изменил ключ сейва на v2, чтобы не конфликтовало со старой версией
+        tg.CloudStorage.getItem('shadow_rpg_v2', (err, val) => {
             if (!err && val) {
                 try {
                     let saved = JSON.parse(val);
@@ -293,7 +294,7 @@ const gameLogic = {
                     if (!game.inventory) game.inventory = [];
                     if (!game.equipment) game.equipment = { weapon: null, armor: null };
 
-                    // Исправление союзников для старых сейвов
+                    // Добавляем новых союзников в сейв, если их не было
                     CONFIG.allies.forEach(a => {
                         if (typeof game.allies[a.id] === 'undefined') {
                             game.allies[a.id] = 0;
@@ -301,9 +302,8 @@ const gameLogic = {
                     });
                 } catch (e) { console.error("Save Error", e); }
             }
-            // Инициализация после загрузки
             this.calcStats();
-            this.spawnMonster(); // Первый спавн монстра
+            this.spawnMonster();
             ui.renderAllies();
             ui.renderInventory();
             ui.updateHeader();
@@ -339,7 +339,7 @@ const ui = {
     setMonster: function(emoji, isBoss) {
         const m = document.getElementById('monster');
         m.innerText = emoji;
-        m.style.fontSize = isBoss ? "160px" : "140px";
+        m.style.fontSize = isBoss ? "170px" : "150px";
     },
 
     showBossTimer: function(show) {
@@ -379,12 +379,12 @@ const ui = {
             div.innerHTML = `
                 <div class="ally-icon">${a.icon}</div>
                 <div class="ally-info">
-                    <div class="ally-name">${a.name} <span style="color:#64748b">Lvl ${lvl}</span></div>
-                    <div class="ally-rank">${rank > 0 ? '⭐'.repeat(rank) : ''}</div>
+                    <div class="ally-name">${a.name} <span style="color:#64748b; font-size:12px">Lvl ${lvl}</span></div>
+                    <div class="ally-rank">${rank > 0 ? '🟣'.repeat(rank) : ''}</div>
                     <div class="ally-desc">+${a.baseDps} DPS</div>
                 </div>
                 <button class="btn-buy" onclick="gameLogic.buyAlly('${a.id}')">
-                    UP<br><span style="color:#f59e0b">${cost}</span>
+                    UP<br><span style="color:#38bdf8">${cost} 💎</span>
                 </button>
             `;
             list.appendChild(div);
@@ -432,18 +432,11 @@ const ui = {
         document.getElementById('item-modal').style.display = 'flex';
     },
 
-    // --- ФУНКЦИЯ ПЕРЕКЛЮЧЕНИЯ ВКЛАДОК ---
     switchTab: function(id, btn) {
-        // 1. Убираем класс active у всех вкладок
         document.querySelectorAll('.tab-view').forEach(e => e.classList.remove('active'));
-
-        // 2. Убираем active у всех кнопок
         document.querySelectorAll('.nav-btn').forEach(e => e.classList.remove('active'));
-
-        // 3. Добавляем active нужной вкладке и кнопке
         document.getElementById('view-' + id).classList.add('active');
         btn.classList.add('active');
-
         tg.HapticFeedback.selectionChanged();
     }
 };

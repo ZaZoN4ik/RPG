@@ -5,23 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Realm of Shadows</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
     <div class="header">
-        <div class="game-title">REALM OF SHADOWS</div>
+        <div class="game-title">❖ Realm of Shadows ❖</div>
         <div class="top-stats">
             <div class="top-stat-box">
                 <span class="icon">⚔️</span>
                 <span id="ui-click-dmg">1</span>
             </div>
             <div class="top-stat-box">
-                <span class="icon">👥</span>
+                <span class="icon">⚡</span>
                 <span id="ui-auto-dps">0</span>
             </div>
             <div class="top-stat-box gold">
-                <span class="icon">💰</span>
+                <span class="icon">💎</span>
                 <span id="ui-gold">0</span>
             </div>
         </div>
@@ -32,53 +33,52 @@
         <div id="view-battle" class="tab-view active">
 
             <div class="battle-header">
-                <div class="lvl-badge">LVL <span id="ui-lvl">1</span></div>
+                <div class="lvl-badge">LEVEL <span id="ui-lvl">1</span></div>
                 <div class="kills-info" id="ui-kills-info">Kills: 0/10</div>
             </div>
 
             <div id="boss-timer-box" class="boss-timer-box">
-                <div style="font-size:12px; font-weight:bold; color:#ef4444;">BOSS FIGHT</div>
+                <div style="font-size:12px; font-weight:900; color:#ef4444; letter-spacing:1px; margin-bottom:5px;">⚠️ BOSS FIGHT ⚠️</div>
                 <div class="timer-bg"><div class="timer-fill" id="boss-timer-fill"></div></div>
             </div>
 
             <div class="monster-wrapper" onclick="gameLogic.onTap(event)">
                 <div class="monster" id="monster">👾</div>
-                <div class="damage-overlay" id="dmg-overlay"></div>
             </div>
 
             <div class="hp-bar-box">
-                <div class="hp-bar">
-                    <div class="hp-fill" id="hp-fill"></div>
-                </div>
                 <div class="hp-text">
                     <span id="hp-cur">100</span> / <span id="hp-max">100</span>
+                </div>
+                <div class="hp-bar">
+                    <div class="hp-fill" id="hp-fill"></div>
                 </div>
             </div>
         </div>
 
         <div id="view-allies" class="tab-view">
-            <div class="tab-header">Вербовка и Тренировка</div>
+            <div class="tab-header">Темный ритуал</div>
             <div id="allies-list" class="list-container">
                 </div>
         </div>
 
         <div id="view-hero" class="tab-view">
-            <div class="tab-header">Снаряжение</div>
+            <div class="tab-header">Экипировка</div>
 
             <div class="equipment-slots">
                 <div class="slot-wrapper">
                     <div class="slot-label">Оружие</div>
                     <div class="equip-slot" id="slot-weapon" onclick="gameLogic.unequip('weapon')">🗡️</div>
-                    <div class="equip-stat" id="stat-weapon">+0 DMG</div>
+                    <div class="equip-stat" id="stat-weapon">+0</div>
                 </div>
                 <div class="slot-wrapper">
                     <div class="slot-label">Броня</div>
                     <div class="equip-slot" id="slot-armor" onclick="gameLogic.unequip('armor')">🛡️</div>
-                    <div class="equip-stat" id="stat-armor">+0 HP</div>
+                    <div class="equip-stat" id="stat-armor">+0</div>
                 </div>
             </div>
 
-            <div class="tab-header" style="margin-top:20px;">Инвентарь</div>
+            <div class="tab-header" style="margin-top:10px;">Сумка</div>
             <div class="inventory-grid" id="inventory-box">
                 </div>
         </div>
@@ -87,20 +87,29 @@
 
     <div id="item-modal" class="modal">
         <div class="modal-content">
-            <div id="modal-title" class="modal-title">Меч</div>
-            <div id="modal-stats" class="modal-stats">+10 Урона</div>
+            <div id="modal-title" class="modal-title">Предмет</div>
+            <div id="modal-stats" class="modal-stats">...</div>
             <div class="modal-actions">
-                <button class="btn equip" onclick="gameLogic.actionEquip()">Надеть</button>
-                <button class="btn sell" onclick="gameLogic.actionSell()">Продать (<span id="modal-price">0</span>💰)</button>
+                <button class="btn equip" onclick="gameLogic.actionEquip()">НАДЕТЬ</button>
+                <button class="btn sell" onclick="gameLogic.actionSell()">РАЗБИТЬ (<span id="modal-price">0</span>💎)</button>
             </div>
-            <button class="btn close" onclick="document.getElementById('item-modal').style.display='none'">Закрыть</button>
+            <button class="btn close" onclick="document.getElementById('item-modal').style.display='none'">Отмена</button>
         </div>
     </div>
 
     <div class="nav-bar">
-        <button class="nav-btn active" onclick="ui.switchTab('battle', this)">⚔️<br>Битва</button>
-        <button class="nav-btn" onclick="ui.switchTab('allies', this)">⛺<br>Лагерь</button>
-        <button class="nav-btn" onclick="ui.switchTab('hero', this)">👤<br>Герой</button>
+        <button class="nav-btn active" onclick="ui.switchTab('battle', this)">
+            <span style="font-size:18px;">⚔️</span>
+            Битва
+        </button>
+        <button class="nav-btn" onclick="ui.switchTab('allies', this)">
+            <span style="font-size:18px;">🏰</span>
+            Цитадель
+        </button>
+        <button class="nav-btn" onclick="ui.switchTab('hero', this)">
+            <span style="font-size:18px;">👤</span>
+            Герой
+        </button>
     </div>
 
     <script src="script.js"></script>
