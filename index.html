@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Realm of Shadows: Arcane</title>
+    <title>Realm of Shadows: Rebirth</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
@@ -11,20 +11,23 @@
 <body>
 
     <div class="header">
-        <div class="game-title">❖ Shadow Arcane ❖</div>
+        <div class="game-title">❖ Shadow Rebirth ❖</div>
         <div class="top-stats">
             <div class="top-stat-box">
                 <span class="icon">⚔️</span>
                 <span id="ui-click-dmg">1</span>
             </div>
-            <div class="top-stat-box">
-                <span class="icon">⚡</span>
-                <span id="ui-auto-dps">0</span>
+            <div class="top-stat-box souls">
+                <span class="icon">👻</span>
+                <span id="ui-souls">0</span>
             </div>
             <div class="top-stat-box gold">
                 <span class="icon">💎</span>
                 <span id="ui-gold">0</span>
             </div>
+        </div>
+        <div class="sub-header">
+            Армия DPS: <span id="ui-auto-dps" style="color:#fff">0</span>
         </div>
     </div>
 
@@ -44,47 +47,16 @@
             <div class="monster-wrapper" onclick="gameLogic.onTap(event)">
                 <div class="monster" id="monster">👾</div>
                 <div class="crit-flash" id="crit-flash"></div>
-                <div class="spell-flash" id="spell-flash"></div>
             </div>
 
-            <div class="spells-bar">
-                <div class="spell-btn" id="btn-spell-bolt" onclick="gameLogic.castSpell('bolt')">
-                    <div class="spell-icon">⚡</div>
-                    <div class="spell-cost">25</div>
-                    <div class="cooldown-overlay" id="cd-bolt"></div>
+            <div class="hp-bar-box">
+                <div class="bar-text">
+                    <span id="hp-cur">100</span> / <span id="hp-max">100</span> HP
                 </div>
-                <div class="spell-btn" id="btn-spell-haste" onclick="gameLogic.castSpell('haste')">
-                    <div class="spell-icon">🩸</div>
-                    <div class="spell-cost">40</div>
-                    <div class="cooldown-overlay" id="cd-haste"></div>
-                </div>
-                <div class="spell-btn" id="btn-spell-gold" onclick="gameLogic.castSpell('gold')">
-                    <div class="spell-icon">💰</div>
-                    <div class="spell-cost">50</div>
-                    <div class="cooldown-overlay" id="cd-gold"></div>
+                <div class="hp-bar">
+                    <div class="hp-fill" id="hp-fill"></div>
                 </div>
             </div>
-
-            <div class="bars-container">
-                <div class="hp-bar-box">
-                    <div class="bar-text">
-                        <span id="hp-cur">100</span> / <span id="hp-max">100</span> HP
-                    </div>
-                    <div class="hp-bar">
-                        <div class="hp-fill" id="hp-fill"></div>
-                    </div>
-                </div>
-
-                <div class="mana-bar-box">
-                    <div class="bar-text">
-                        <span id="mana-cur">0</span> / 100 MP
-                    </div>
-                    <div class="mana-bar">
-                        <div class="mana-fill" id="mana-fill"></div>
-                    </div>
-                </div>
-            </div>
-
         </div>
 
         <div id="view-allies" class="tab-view">
@@ -93,6 +65,14 @@
         </div>
 
         <div id="view-hero" class="tab-view">
+
+            <div class="rebirth-section">
+                <button class="btn-rebirth" onclick="gameLogic.openRebirthModal()">
+                    🌀 ПЕРЕРОЖДЕНИЕ
+                </button>
+                <div class="rebirth-desc">Сброс прогресса ради вечной силы</div>
+            </div>
+
             <div class="tab-header">Экипировка</div>
             <div class="equipment-grid">
                 <div class="slot-wrapper">
@@ -120,7 +100,9 @@
                     <div class="equip-stat" id="stat-ring">+0% Spd</div>
                 </div>
             </div>
+
             <div class="stats-summary" id="stats-summary">...</div>
+
             <div class="tab-header" style="margin-top:15px;">Сумка</div>
             <div class="inventory-grid" id="inventory-box"></div>
         </div>
@@ -139,8 +121,27 @@
         </div>
     </div>
 
+    <div id="rebirth-modal" class="modal">
+        <div class="modal-content" style="border-color: #a855f7; background: #0f0518;">
+            <div class="modal-title" style="color:#a855f7; font-size: 22px;">РИТУАЛ</div>
+            <div style="margin: 15px 0; font-size:13px; color:#cbd5e1;">
+                Вы пожертвуете всей армией, золотом и предметами.
+                <br><br>
+                <span style="color:#ef4444">Вы потеряете:</span> Все (кроме Душ)<br>
+                <span style="color:#a855f7">Вы получите:</span> <span id="rebirth-gain" style="font-weight:bold; font-size:16px;">0</span> Душ
+            </div>
+            <div style="font-size:11px; color:#94a3b8; margin-bottom:20px;">
+                Каждая душа дает +50% ко ВСЕМУ урону навсегда.
+            </div>
+            <div class="modal-actions">
+                <button class="btn equip" onclick="gameLogic.doRebirth()" style="background: linear-gradient(135deg, #a855f7, #7c3aed);">ПРИНЯТЬ ТЬМУ</button>
+            </div>
+            <button class="btn close" onclick="document.getElementById('rebirth-modal').style.display='none'">Отмена</button>
+        </div>
+    </div>
+
     <div class="nav-bar">
-        <button class="nav-btn active" onclick="ui.switchTab('battle', this)">⚔️<br>Магия</button>
+        <button class="nav-btn active" onclick="ui.switchTab('battle', this)">⚔️<br>Битва</button>
         <button class="nav-btn" onclick="ui.switchTab('allies', this)">🏰<br>Армия</button>
         <button class="nav-btn" onclick="ui.switchTab('hero', this)">👤<br>Герой</button>
     </div>
