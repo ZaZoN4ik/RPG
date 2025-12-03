@@ -309,15 +309,29 @@ const gameLogic = {
         tg.CloudStorage.getItem('shadow_rpg_v1', (err, val) => {
             if (!err && val) {
                 let saved = JSON.parse(val);
+
+                // 1. Восстанавливаем базовые данные
                 game = { ...game, ...saved };
-                // Фикс для старых сейвов
+
+                // 2. Фиксы для старых сохранений
                 if (!game.inventory) game.inventory = [];
                 if (!game.equipment) game.equipment = { weapon: null, armor: null };
+
+                // 3. !!! ВАЖНОЕ ИСПРАВЛЕНИЕ !!!
+                // Проверяем каждого союзника из CONFIG.
+                // Если его нет в загруженном сейве - добавляем с уровнем 0.
+                CONFIG.allies.forEach(a => {
+                    if (typeof game.allies[a.id] === 'undefined') {
+                        game.allies[a.id] = 0;
+                    }
+                });
             }
+            // Перерисовка интерфейса
             this.calcStats();
             ui.renderAllies();
             ui.renderInventory();
         });
+    }
     }
 };
 
