@@ -12,14 +12,25 @@
     <div class="header">
         <div class="game-title">REALM OF SHADOWS</div>
         <div class="top-stats">
-            <div class="top-stat-box"><span class="icon">⚔️</span><span id="ui-click-dmg">0</span></div>
-            <div class="top-stat-box"><span class="icon">🔥</span><span id="ui-crit-chance">0%</span></div>
-            <div class="top-stat-box gold"><span class="icon">💰</span><span id="ui-gold">0</span></div>
+            <div class="top-stat-box">
+                <span class="icon">⚔️</span>
+                <span id="ui-click-dmg">1</span>
+            </div>
+            <div class="top-stat-box">
+                <span class="icon">👥</span>
+                <span id="ui-auto-dps">0</span>
+            </div>
+            <div class="top-stat-box gold">
+                <span class="icon">💰</span>
+                <span id="ui-gold">0</span>
+            </div>
         </div>
     </div>
 
     <div class="content">
+
         <div id="view-battle" class="tab-view active">
+
             <div class="battle-header">
                 <div class="lvl-badge">LVL <span id="ui-lvl">1</span></div>
                 <div class="kills-info" id="ui-kills-info">Kills: 0/10</div>
@@ -30,68 +41,66 @@
                 <div class="timer-bg"><div class="timer-fill" id="boss-timer-fill"></div></div>
             </div>
 
-            <div class="monster-wrapper" id="multitouch-zone">
+            <div class="monster-wrapper" onclick="gameLogic.onTap(event)">
                 <div class="monster" id="monster">👾</div>
+                <div class="damage-overlay" id="dmg-overlay"></div>
             </div>
 
             <div class="hp-bar-box">
-                <div class="hp-bar"><div class="hp-fill" id="hp-fill"></div></div>
-                <div class="hp-text"><span id="hp-cur">100</span> / <span id="hp-max">100</span></div>
+                <div class="hp-bar">
+                    <div class="hp-fill" id="hp-fill"></div>
+                </div>
+                <div class="hp-text">
+                    <span id="hp-cur">100</span> / <span id="hp-max">100</span>
+                </div>
             </div>
         </div>
 
         <div id="view-allies" class="tab-view">
-            <div class="tab-header">Союзники (Авто-урон: <span id="ui-auto-dps">0</span>)</div>
-            <div id="allies-list" class="list-container"></div>
+            <div class="tab-header">Вербовка и Тренировка</div>
+            <div id="allies-list" class="list-container">
+                </div>
         </div>
 
         <div id="view-hero" class="tab-view">
             <div class="tab-header">Снаряжение</div>
-            <div class="equip-grid">
-                <div class="slot-wrap" onclick="gameLogic.unequip('head')">
-                    <div class="slot-icon">🪖</div>
-                    <div class="equip-slot" id="slot-head"></div>
+
+            <div class="equipment-slots">
+                <div class="slot-wrapper">
+                    <div class="slot-label">Оружие</div>
+                    <div class="equip-slot" id="slot-weapon" onclick="gameLogic.unequip('weapon')">🗡️</div>
+                    <div class="equip-stat" id="stat-weapon">+0 DMG</div>
                 </div>
-                <div class="slot-wrap" onclick="gameLogic.unequip('body')">
-                    <div class="slot-icon">👕</div>
-                    <div class="equip-slot" id="slot-body"></div>
-                </div>
-                 <div class="slot-wrap" onclick="gameLogic.unequip('weapon')">
-                    <div class="slot-icon">⚔️</div>
-                    <div class="equip-slot" id="slot-weapon"></div>
-                </div>
-                <div class="slot-wrap" onclick="gameLogic.unequip('legs')">
-                    <div class="slot-icon">🦿</div>
-                    <div class="equip-slot" id="slot-legs"></div>
-                </div>
-                <div class="slot-wrap" onclick="gameLogic.unequip('acc')">
-                    <div class="slot-icon">💍</div>
-                    <div class="equip-slot" id="slot-acc"></div>
+                <div class="slot-wrapper">
+                    <div class="slot-label">Броня</div>
+                    <div class="equip-slot" id="slot-armor" onclick="gameLogic.unequip('armor')">🛡️</div>
+                    <div class="equip-stat" id="stat-armor">+0 HP</div>
                 </div>
             </div>
 
-            <div class="tab-header" style="margin-top:20px;">Инвентарь (<span id="inv-count">0</span>)</div>
-            <div class="inventory-grid" id="inventory-box"></div>
+            <div class="tab-header" style="margin-top:20px;">Инвентарь</div>
+            <div class="inventory-grid" id="inventory-box">
+                </div>
         </div>
+
     </div>
 
     <div id="item-modal" class="modal">
         <div class="modal-content">
-            <div id="modal-title" class="modal-title">Предмет</div>
-            <div id="modal-main-stat" class="modal-main-stat">+10 DMG</div>
-            <div id="modal-buffs" class="modal-buffs"></div>
+            <div id="modal-title" class="modal-title">Меч</div>
+            <div id="modal-stats" class="modal-stats">+10 Урона</div>
             <div class="modal-actions">
                 <button class="btn equip" onclick="gameLogic.actionEquip()">Надеть</button>
-                <button class="btn sell" onclick="gameLogic.actionSell()">Продать (<span id="modal-price">0</span>)</button>
+                <button class="btn sell" onclick="gameLogic.actionSell()">Продать (<span id="modal-price">0</span>💰)</button>
             </div>
-            <button class="btn close" onclick="ui.closeModal()">Закрыть</button>
+            <button class="btn close" onclick="document.getElementById('item-modal').style.display='none'">Закрыть</button>
         </div>
     </div>
 
     <div class="nav-bar">
-        <button class="nav-btn active" onclick="ui.switchTab('battle', this)">⚔️</button>
-        <button class="nav-btn" onclick="ui.switchTab('allies', this)">⛺</button>
-        <button class="nav-btn" onclick="ui.switchTab('hero', this)">👤</button>
+        <button class="nav-btn active" onclick="ui.switchTab('battle', this)">⚔️<br>Битва</button>
+        <button class="nav-btn" onclick="ui.switchTab('allies', this)">⛺<br>Лагерь</button>
+        <button class="nav-btn" onclick="ui.switchTab('hero', this)">👤<br>Герой</button>
     </div>
 
     <script src="script.js"></script>
