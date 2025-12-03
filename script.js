@@ -13,6 +13,15 @@ const CONFIG = {
         { id: 'lich', name: 'Лич', baseDps: 800, cost: 30000, icon: '🧟' },
         { id: 'dragon', name: 'Дракон', baseDps: 2500, cost: 120000, icon: '🐉' }
     ],
+    // ТАЛАНТЫ (Дерево)
+    talents: [
+        { id: 'dmg', name: 'Blood Pact', icon: '🩸', desc: '+20% Click DMG', baseCost: 1, type: 'mult' },
+        { id: 'army', name: 'Necromancy', icon: '💀', desc: '+20% Army DPS', baseCost: 1, type: 'mult' },
+        { id: 'gold', name: 'Soul Greed', icon: '🤑', desc: '+25% Gold Gain', baseCost: 2, type: 'mult' },
+        { id: 'spd', name: 'Dark Haste', icon: '⚡', desc: '+5% ATK Speed', baseCost: 5, type: 'add' },
+        { id: 'crit', name: 'Fatal Strike', icon: '👁️', desc: '+2% Crit Chance', baseCost: 10, type: 'add' },
+        { id: 'boss', name: 'Boss Slayer', icon: '👑', desc: '+50% Boss DMG', baseCost: 15, type: 'mult' }
+    ],
     slots: {
         weapon: { name: "Оружие", icon: "⚔️", statName: "Урон", unit: "" },
         armor: { name: "Броня", icon: "🛡️", statName: "Авто-ДПС", unit: "" },
@@ -21,7 +30,7 @@ const CONFIG = {
         boots: { name: "Сапоги", icon: "👢", statName: "Золото", unit: "%" },
         ring: { name: "Кольцо", icon: "💍", statName: "Скор.Атаки", unit: "%" }
     },
-    prefixes: ["Сломанный", "Ржавый", "Обычный", "Редкий", "Закаленный", "Мифриловый", "Проклятый", "Древний", "Демонический", "Эфирный", "Космический", "Божественный"],
+    prefixes: ["Сломанный", "Ржавый", "Обычный", "Редкий", "Закаленный", "Мифриловый", "Проклятый", "Древний", "Демонический", "Эфирный"],
     rarities: [
         { id: 'common', name:'Обыч.', color:'common', mult: 1 },
         { id: 'rare', name:'Редкий', color:'rare', mult: 3 },
@@ -35,7 +44,8 @@ let game = {
     gold: 0,
     lvl: 1,
     kills: 0,
-    souls: 0, // Престиж-валюта
+    souls: 0,
+    talents: { dmg: 0, army: 0, gold: 0, spd: 0, crit: 0, boss: 0 }, // Уровни талантов
     inventory: [],
     equipment: { weapon: null, armor: null, helmet: null, gloves: null, boots: null, ring: null },
     allies: { skeleton: 0, ghost: 0, acolyte: 0, demon: 0, necromancer: 0, lich: 0, dragon: 0 }
@@ -48,17 +58,14 @@ let battle = {
     bossTimer: null,
     bossTimeLeft: 0,
 
-    // Статы
+    // Stats
     clickDmg: 1,
     autoDps: 0,
     critChance: 5,
     critMult: 150,
     goldMult: 1.0,
     autoSpeed: 1.0,
-
-    // Множители
-    totalAllyLevels: 0, // Сумма уровней всех союзников
-    soulMult: 1.0       // Множитель от душ
+    bossDmgMult: 1.0
 };
 
 let autoDmgInterval = null;
@@ -69,10 +76,9 @@ const gameLogic = {
     init: function() {
         this.load();
         this.resetAutoLoop();
-        setInterval(() => this.save(), 15000); // Автосейв
+        setInterval(() => this.save(), 15000);
     },
 
-    // --- БОЕВАЯ СИСТЕМА ---
     resetAutoLoop: function() {
         clearInterval(autoDmgInterval);
         let delay = Math.max(50, Math.floor(1000 / battle.autoSpeed));
@@ -88,6 +94,9 @@ const gameLogic = {
         let isCrit = Math.random() * 100 < battle.critChance;
         let dmg = battle.clickDmg;
         if (isCrit) dmg = Math.floor(dmg * (battle.critMult / 100));
+
+        // Бонус по боссу
+        if (battle.isBoss) dmg = Math.floor(dmg * battle.bossDmgMult);
 
         this.dealDamage(dmg);
         ui.spawnDmg(e.clientX, e.clientY, dmg, isCrit);
@@ -106,10 +115,7 @@ const gameLogic = {
 
     spawnMonster: function() {
         battle.isBoss = (game.lvl % 5 === 0);
-
-        // --- ХАРДКОР БАЛАНС HP ---
-        // Было 1.45, стало 1.6 (Монстры намного жирнее)
-        let hpBase = 30 * Math.pow(1.6, game.lvl - 1);
+        let hpBase = 30 * Math.pow(1.55, game.lvl - 1);
         battle.maxHp = Math.floor(hpBase);
 
         if (battle.isBoss) {
@@ -142,7 +148,7 @@ const gameLogic = {
         battle.hp = battle.maxHp;
         ui.updateBars();
         tg.HapticFeedback.notificationOccurred('error');
-        tg.showAlert("☠️ СЛАБОСТЬ\nНужно больше силы! Сделайте перерождение.");
+        tg.showAlert("☠️ СЛАБОСТЬ\nНужно больше силы! Посетите Алтарь.");
         this.startBossTimer();
     },
 
@@ -150,7 +156,7 @@ const gameLogic = {
         clearInterval(battle.bossTimer);
         ui.showBossTimer(false);
 
-        let goldBase = Math.floor(battle.maxHp / 6); // Денег чуть меньше, чтобы стимулировать перерождение
+        let goldBase = Math.floor(battle.maxHp / 6);
         if (goldBase < 1) goldBase = 1;
         if (battle.isBoss) goldBase *= 10;
 
@@ -174,60 +180,67 @@ const gameLogic = {
         this.spawnMonster();
     },
 
-    // --- ПЕРЕРОЖДЕНИЕ (PRESTIGE) ---
-    openRebirthModal: function() {
-        // Формула душ: Уровень / 5 (минимум 0)
-        let potentialSouls = Math.floor(game.lvl / 5);
-        document.getElementById('rebirth-gain').innerText = potentialSouls;
-        document.getElementById('rebirth-modal').style.display = 'flex';
-    },
-
+    // --- АЛТАРЬ И ТАЛАНТЫ ---
     doRebirth: function() {
-        let soulsGained = Math.floor(game.lvl / 5);
-        if (soulsGained <= 0 && game.souls === 0) {
-            tg.showAlert("Слишком рано!\nДокачайтесь хотя бы до 5 уровня.");
+        // Требование 5 уровня
+        if (game.lvl < 5) {
+            tg.showAlert("Слишком рано!\nНужен 5 уровень.");
             return;
         }
 
-        // Сохраняем души
+        let soulsGained = Math.floor(game.lvl / 5);
         game.souls += soulsGained;
 
-        // СБРОС (Reset)
+        // Reset
         game.gold = 0;
         game.lvl = 1;
         game.kills = 0;
         game.inventory = [];
         game.equipment = { weapon: null, armor: null, helmet: null, gloves: null, boots: null, ring: null };
-
-        // Сброс союзников
         Object.keys(game.allies).forEach(k => game.allies[k] = 0);
 
-        // Сохраняем и перезагружаем
         this.save();
         this.calcStats();
         this.spawnMonster();
 
-        document.getElementById('rebirth-modal').style.display = 'none';
-
-        // Обновляем весь UI
+        // Обновляем UI
         ui.renderAllies();
         ui.renderInventory();
+        ui.renderTalents(); // Обновляем дерево
         ui.updateHeader();
         ui.updateBars();
 
         tg.HapticFeedback.notificationOccurred('success');
-        tg.showAlert(`🌀 ПЕРЕРОЖДЕНИЕ ЗАВЕРШЕНО\nПолучено: ${soulsGained} Душ.\nВаша сила возросла!`);
+        tg.showAlert(`🌀 ПЕРЕРОЖДЕНИЕ\nПолучено: ${soulsGained} Душ.\nПотратьте их в Древе Тьмы!`);
+    },
+
+    buyTalent: function(id) {
+        let talent = CONFIG.talents.find(t => t.id === id);
+        let lvl = game.talents[id] || 0;
+        let cost = Math.floor(talent.baseCost * Math.pow(1.5, lvl));
+
+        if (game.souls >= cost) {
+            game.souls -= cost;
+            game.talents[id] = lvl + 1;
+
+            this.calcStats();
+            ui.renderTalents();
+            ui.updateHeader();
+            tg.HapticFeedback.selectionChanged();
+        } else {
+            tg.HapticFeedback.notificationOccurred('error');
+        }
     },
 
     // --- РАСЧЕТ СТАТОВ ---
     calcStats: function() {
-        // Базовые значения
         battle.clickDmg = 1;
         battle.autoDps = 0;
         battle.critChance = 5;
         battle.critMult = 150;
         battle.goldMult = 1.0;
         battle.autoSpeed = 1.0;
+        battle.bossDmgMult = 1.0;
 
         // 1. Предметы
         const eq = game.equipment;
@@ -238,34 +251,44 @@ const gameLogic = {
         if (eq.boots) battle.goldMult += (eq.boots.val / 100);
         if (eq.ring) battle.autoSpeed += (eq.ring.val / 100);
 
-        // 2. Армия (Auto DPS)
+        // 2. Армия
         let allyDps = 0;
-        let totalLevels = 0;
         CONFIG.allies.forEach(a => {
             let lvl = game.allies[a.id] || 0;
             if (lvl > 0) {
-                totalLevels += lvl;
                 let mult = 1 + Math.floor(lvl / 10);
                 allyDps += (a.baseDps * lvl * mult);
             }
         });
-        battle.totalAllyLevels = totalLevels;
 
-        // 3. СИНЕРГИЯ ГЕРОЯ (Новое!)
-        // Каждый уровень любого миньона дает +5% к урону героя
-        let heroSynergyMult = 1 + (totalLevels * 0.05);
-        battle.clickDmg = Math.floor(battle.clickDmg * heroSynergyMult);
+        // 3. ТАЛАНТЫ (Skill Tree)
+        // Blood Pact (Click DMG)
+        let tDmg = game.talents.dmg || 0;
+        battle.clickDmg = Math.floor(battle.clickDmg * (1 + tDmg * 0.2));
 
-        // 4. ДУШИ (Глобальный множитель)
-        // Каждая душа дает +50% ко всему урону
-        let soulMult = 1 + (game.souls * 0.5);
-        battle.soulMult = soulMult; // Сохраняем для UI
+        // Necromancy (Army DPS)
+        let tArmy = game.talents.army || 0;
+        allyDps = Math.floor(allyDps * (1 + tArmy * 0.2));
 
-        battle.clickDmg = Math.floor(battle.clickDmg * soulMult);
-        allyDps = Math.floor(allyDps * soulMult);
+        // Soul Greed (Gold)
+        let tGold = game.talents.gold || 0;
+        battle.goldMult += (tGold * 0.25);
+
+        // Dark Haste (Speed)
+        let tSpd = game.talents.spd || 0;
+        battle.autoSpeed += (tSpd * 0.05);
+
+        // Fatal Strike (Crit)
+        let tCrit = game.talents.crit || 0;
+        battle.critChance += (tCrit * 2);
+
+        // Boss Slayer
+        let tBoss = game.talents.boss || 0;
+        battle.bossDmgMult += (tBoss * 0.5);
+
+        // Итоговый DPS
         battle.autoDps += allyDps;
 
-        // Кап шанса
         if (battle.critChance > 80) battle.critChance = 80;
 
         this.resetAutoLoop();
@@ -273,7 +296,6 @@ const gameLogic = {
         ui.updateEquipUI();
     },
 
-    // --- ГЕНЕРАЦИЯ ЛУТА ---
     generateLoot: function() {
         let rnd = Math.random();
         let rarity = CONFIG.rarities[0];
@@ -286,7 +308,6 @@ const gameLogic = {
         let prefix = CONFIG.prefixes[Math.floor(Math.random() * CONFIG.prefixes.length)];
         let slotName = CONFIG.slots[type].name;
 
-        // Сила предметов растет от уровня
         let baseVal = (game.lvl * 3) + 5;
         let val = Math.floor(baseVal * rarity.mult * (0.9 + Math.random() * 0.4));
 
@@ -316,7 +337,7 @@ const gameLogic = {
         if (game.gold >= cost) {
             game.gold -= cost;
             game.allies[id] = lvl + 1;
-            this.calcStats(); // Пересчет урона героя сразу!
+            this.calcStats();
             ui.renderAllies();
             tg.HapticFeedback.selectionChanged();
         } else {
@@ -357,14 +378,14 @@ const gameLogic = {
         }
     },
 
-    // --- СОХРАНЕНИЯ (Chunking + Local) ---
     save: function() {
         try {
             const dataCore = {
                 gold: game.gold,
                 lvl: game.lvl,
                 kills: game.kills,
-                souls: game.souls, // Сохраняем души
+                souls: game.souls,
+                talents: game.talents, // Save Talents
                 equipment: game.equipment,
                 allies: game.allies,
                 stats: { hp: battle.hp },
@@ -383,12 +404,12 @@ const gameLogic = {
             }
             dataCore.invChunksCount = invChunks.length;
 
-            localStorage.setItem('shadow_rpg_v7_full', JSON.stringify({ core: dataCore, inventory: simplifiedInventory }));
+            localStorage.setItem('shadow_rpg_v8', JSON.stringify({ core: dataCore, inventory: simplifiedInventory }));
 
             if (tg.CloudStorage) {
-                tg.CloudStorage.setItem('rpg_core_v7', JSON.stringify(dataCore));
+                tg.CloudStorage.setItem('rpg_core_v8', JSON.stringify(dataCore));
                 invChunks.forEach((chunk, index) => {
-                    tg.CloudStorage.setItem(`rpg_inv_v7_${index}`, JSON.stringify(chunk), (err)=>{});
+                    tg.CloudStorage.setItem(`rpg_inv_v8_${index}`, JSON.stringify(chunk), (err)=>{});
                 });
             }
         } catch (e) { console.error(e); }
@@ -405,10 +426,11 @@ const gameLogic = {
             game.gold = core.gold || 0;
             game.lvl = core.lvl || 1;
             game.kills = core.kills || 0;
-            game.souls = core.souls || 0; // Загружаем души
+            game.souls = core.souls || 0;
+            // Merge talents safely
+            game.talents = { ...game.talents, ...(core.talents || {}) };
             game.equipment = core.equipment || { weapon: null, armor: null, helmet: null, gloves: null, boots: null, ring: null };
             game.allies = { ...game.allies, ...(core.allies || {}) };
-
             if (core.stats) battle.hp = core.stats.hp || battle.maxHp;
 
             if (inventory && Array.isArray(inventory)) {
@@ -422,8 +444,7 @@ const gameLogic = {
             this.updateAllUI();
         };
 
-        // LocalStorage (v7 ключ)
-        const localData = localStorage.getItem('shadow_rpg_v7_full');
+        const localData = localStorage.getItem('shadow_rpg_v8');
         if (localData) {
             try {
                 const parsed = JSON.parse(localData);
@@ -431,15 +452,14 @@ const gameLogic = {
             } catch(e) {}
         }
 
-        // Cloud Storage (v7 ключи)
         if (tg.CloudStorage) {
-            tg.CloudStorage.getItem('rpg_core_v7', (err, coreVal) => {
+            tg.CloudStorage.getItem('rpg_core_v8', (err, coreVal) => {
                 if (!err && coreVal) {
                     const core = JSON.parse(coreVal);
                     const chunksCount = core.invChunksCount || 0;
                     if (chunksCount > 0) {
                         let keys = [];
-                        for(let i=0; i < chunksCount; i++) keys.push(`rpg_inv_v7_${i}`);
+                        for(let i=0; i < chunksCount; i++) keys.push(`rpg_inv_v8_${i}`);
                         tg.CloudStorage.getItems(keys, (err, values) => {
                             if (!err && values) {
                                 let fullInv = [];
@@ -459,6 +479,7 @@ const gameLogic = {
     updateAllUI: function() {
         this.calcStats();
         ui.renderAllies();
+        ui.renderTalents();
         ui.renderInventory();
         ui.updateHeader();
         ui.updateBars();
@@ -471,16 +492,19 @@ const ui = {
         document.getElementById('ui-gold').innerText = this.formatNum(game.gold);
         document.getElementById('ui-lvl').innerText = game.lvl;
         document.getElementById('ui-click-dmg').innerText = this.formatNum(battle.clickDmg);
-        document.getElementById('ui-auto-dps').innerText = this.formatNum(battle.autoDps);
         document.getElementById('ui-souls').innerText = game.souls;
+        document.getElementById('rebirth-preview').innerText = Math.floor(game.lvl / 5);
 
         let killsEl = document.getElementById('ui-kills-info');
         killsEl.innerText = battle.isBoss ? "BOSS FIGHT" : `Kills: ${game.kills}/10`;
         killsEl.style.color = battle.isBoss ? "#ef4444" : "#94a3b8";
 
-        let info = `Крит: ${battle.critChance}% | Синергия: +${Math.floor((battle.totalAllyLevels*0.05)*100)}%`;
-        if (game.souls > 0) info += ` | Души: x${battle.soulMult.toFixed(1)}`;
-        document.getElementById('stats-summary').innerText = info;
+        document.getElementById('ally-dps-info').innerText = this.formatNum(battle.autoDps) + " DPS";
+
+        // Rebirth Requirement check
+        let reqEl = document.getElementById('rebirth-req');
+        if (game.lvl >= 5) reqEl.style.color = "#4ade80"; // Green
+        else reqEl.style.color = "#ef4444"; // Red
     },
 
     formatNum: function(num) {
@@ -543,6 +567,27 @@ const ui = {
         });
     },
 
+    renderTalents: function() {
+        const list = document.getElementById('talents-list');
+        list.innerHTML = "";
+        CONFIG.talents.forEach(t => {
+            let lvl = game.talents[t.id] || 0;
+            let cost = Math.floor(t.baseCost * Math.pow(1.5, lvl));
+            let div = document.createElement('div');
+            div.className = 'talent-card';
+            div.innerHTML = `
+                <div class="talent-icon">${t.icon}</div>
+                <div class="talent-name">${t.name}</div>
+                <div class="talent-lvl">Level ${lvl}</div>
+                <div class="talent-desc">${t.desc}</div>
+                <button class="btn-talent" onclick="gameLogic.buyTalent('${t.id}')">
+                    UPGRADE (${cost} 👻)
+                </button>
+            `;
+            list.appendChild(div);
+        });
+    },
+
     renderInventory: function() {
         const grid = document.getElementById('inventory-box');
         grid.innerHTML = "";
@@ -589,13 +634,6 @@ const ui = {
         document.getElementById('view-' + id).classList.add('active');
         btn.classList.add('active');
         tg.HapticFeedback.selectionChanged();
-    },
-
-    // Вспомогательная для кнопки перерождения в табе
-    openRebirthModal: function() {
-        let souls = Math.floor(game.lvl / 5);
-        document.getElementById('rebirth-gain').innerText = souls;
-        document.getElementById('rebirth-modal').style.display = 'flex';
     }
 };
 

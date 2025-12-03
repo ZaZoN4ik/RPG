@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Realm of Shadows: Rebirth</title>
+    <title>Realm of Shadows: Altar</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
@@ -11,7 +11,7 @@
 <body>
 
     <div class="header">
-        <div class="game-title">❖ Shadow Rebirth ❖</div>
+        <div class="game-title">❖ Shadow Altar ❖</div>
         <div class="top-stats">
             <div class="top-stat-box">
                 <span class="icon">⚔️</span>
@@ -25,9 +25,6 @@
                 <span class="icon">💎</span>
                 <span id="ui-gold">0</span>
             </div>
-        </div>
-        <div class="sub-header">
-            Армия DPS: <span id="ui-auto-dps" style="color:#fff">0</span>
         </div>
     </div>
 
@@ -60,49 +57,41 @@
         </div>
 
         <div id="view-allies" class="tab-view">
-            <div class="tab-header">Армия Тьмы</div>
+            <div class="tab-header">Армия Тьмы <span style="float:right; font-size:10px; opacity:0.7" id="ally-dps-info">0 DPS</span></div>
             <div id="allies-list" class="list-container"></div>
         </div>
 
-        <div id="view-hero" class="tab-view">
+        <div id="view-altar" class="tab-view">
 
-            <div class="rebirth-section">
-                <button class="btn-rebirth" onclick="gameLogic.openRebirthModal()">
-                    🌀 ПЕРЕРОЖДЕНИЕ
-                </button>
-                <div class="rebirth-desc">Сброс прогресса ради вечной силы</div>
+            <div class="rebirth-card">
+                <div class="rebirth-title">РИТУАЛ ПЕРЕРОЖДЕНИЯ</div>
+                <div class="rebirth-info">
+                    Сброс прогресса ради <span style="color:#d8b4fe">Душ</span>.<br>
+                    Требуется: <span id="rebirth-req">5</span> Уровень.
+                </div>
+                <div class="rebirth-reward">
+                    Вы получите: <span id="rebirth-preview" style="color:#fff; font-size:16px;">0</span> 👻
+                </div>
+                <button class="btn-rebirth" onclick="gameLogic.doRebirth()">СОВЕРШИТЬ РИТУАЛ</button>
             </div>
 
+            <div class="tab-header">Древо Тьмы</div>
+            <div class="talents-grid" id="talents-list">
+                </div>
+        </div>
+
+        <div id="view-hero" class="tab-view">
             <div class="tab-header">Экипировка</div>
             <div class="equipment-grid">
-                <div class="slot-wrapper">
-                    <div class="equip-slot" id="slot-weapon" onclick="gameLogic.unequip('weapon')">⚔️</div>
-                    <div class="equip-stat" id="stat-weapon">+0 DMG</div>
-                </div>
-                <div class="slot-wrapper">
-                    <div class="equip-slot" id="slot-helmet" onclick="gameLogic.unequip('helmet')">🪖</div>
-                    <div class="equip-stat" id="stat-helmet">+0% Crit</div>
-                </div>
-                <div class="slot-wrapper">
-                    <div class="equip-slot" id="slot-armor" onclick="gameLogic.unequip('armor')">🛡️</div>
-                    <div class="equip-stat" id="stat-armor">+0 DPS</div>
-                </div>
-                <div class="slot-wrapper">
-                    <div class="equip-slot" id="slot-gloves" onclick="gameLogic.unequip('gloves')">🧤</div>
-                    <div class="equip-stat" id="stat-gloves">+0% CDmg</div>
-                </div>
-                <div class="slot-wrapper">
-                    <div class="equip-slot" id="slot-boots" onclick="gameLogic.unequip('boots')">👢</div>
-                    <div class="equip-stat" id="stat-boots">+0% Gold</div>
-                </div>
-                <div class="slot-wrapper">
-                    <div class="equip-slot" id="slot-ring" onclick="gameLogic.unequip('ring')">💍</div>
-                    <div class="equip-stat" id="stat-ring">+0% Spd</div>
-                </div>
+                <div class="slot-wrapper"><div class="equip-slot" id="slot-weapon" onclick="gameLogic.unequip('weapon')">⚔️</div><div class="equip-stat" id="stat-weapon">+0</div></div>
+                <div class="slot-wrapper"><div class="equip-slot" id="slot-helmet" onclick="gameLogic.unequip('helmet')">🪖</div><div class="equip-stat" id="stat-helmet">+0</div></div>
+                <div class="slot-wrapper"><div class="equip-slot" id="slot-armor" onclick="gameLogic.unequip('armor')">🛡️</div><div class="equip-stat" id="stat-armor">+0</div></div>
+                <div class="slot-wrapper"><div class="equip-slot" id="slot-gloves" onclick="gameLogic.unequip('gloves')">🧤</div><div class="equip-stat" id="stat-gloves">+0</div></div>
+                <div class="slot-wrapper"><div class="equip-slot" id="slot-boots" onclick="gameLogic.unequip('boots')">👢</div><div class="equip-stat" id="stat-boots">+0</div></div>
+                <div class="slot-wrapper"><div class="equip-slot" id="slot-ring" onclick="gameLogic.unequip('ring')">💍</div><div class="equip-stat" id="stat-ring">+0</div></div>
             </div>
 
             <div class="stats-summary" id="stats-summary">...</div>
-
             <div class="tab-header" style="margin-top:15px;">Сумка</div>
             <div class="inventory-grid" id="inventory-box"></div>
         </div>
@@ -121,28 +110,10 @@
         </div>
     </div>
 
-    <div id="rebirth-modal" class="modal">
-        <div class="modal-content" style="border-color: #a855f7; background: #0f0518;">
-            <div class="modal-title" style="color:#a855f7; font-size: 22px;">РИТУАЛ</div>
-            <div style="margin: 15px 0; font-size:13px; color:#cbd5e1;">
-                Вы пожертвуете всей армией, золотом и предметами.
-                <br><br>
-                <span style="color:#ef4444">Вы потеряете:</span> Все (кроме Душ)<br>
-                <span style="color:#a855f7">Вы получите:</span> <span id="rebirth-gain" style="font-weight:bold; font-size:16px;">0</span> Душ
-            </div>
-            <div style="font-size:11px; color:#94a3b8; margin-bottom:20px;">
-                Каждая душа дает +50% ко ВСЕМУ урону навсегда.
-            </div>
-            <div class="modal-actions">
-                <button class="btn equip" onclick="gameLogic.doRebirth()" style="background: linear-gradient(135deg, #a855f7, #7c3aed);">ПРИНЯТЬ ТЬМУ</button>
-            </div>
-            <button class="btn close" onclick="document.getElementById('rebirth-modal').style.display='none'">Отмена</button>
-        </div>
-    </div>
-
     <div class="nav-bar">
         <button class="nav-btn active" onclick="ui.switchTab('battle', this)">⚔️<br>Битва</button>
-        <button class="nav-btn" onclick="ui.switchTab('allies', this)">🏰<br>Армия</button>
+        <button class="nav-btn" onclick="ui.switchTab('allies', this)">💀<br>Армия</button>
+        <button class="nav-btn" onclick="ui.switchTab('altar', this)">🔥<br>Алтарь</button>
         <button class="nav-btn" onclick="ui.switchTab('hero', this)">👤<br>Герой</button>
     </div>
 
