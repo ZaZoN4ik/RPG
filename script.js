@@ -2,26 +2,25 @@ const tg = window.Telegram.WebApp;
 tg.expand();
 tg.disableVerticalSwipes();
 
-// --- ОБНОВЛЕННАЯ КОНФИГУРАЦИЯ ---
+// --- КОНФИГУРАЦИЯ ---
 const CONFIG = {
     allies: [
         { id: 'militia', name: 'Ополченец', baseDps: 2, cost: 50, icon: '🧑‍🌾' },
-        { id: 'dog', name: 'Боевой Пес', baseDps: 8, cost: 150, icon: '🐕' }, // Новый!
+        { id: 'dog', name: 'Боевой Пес', baseDps: 8, cost: 150, icon: '🐕' },
         { id: 'archer', name: 'Лучник', baseDps: 25, cost: 450, icon: '🏹' },
-        { id: 'mercenary', name: 'Наемник', baseDps: 60, cost: 1200, icon: '🗡️' }, // Новый!
+        { id: 'mercenary', name: 'Наемник', baseDps: 60, cost: 1200, icon: '🗡️' },
         { id: 'mage', name: 'Маг Огня', baseDps: 150, cost: 3500, icon: '🔥' },
         { id: 'knight', name: 'Паладин', baseDps: 400, cost: 10000, icon: '🛡️' },
-        { id: 'dragon', name: 'Дракончик', baseDps: 1000, cost: 50000, icon: '🐲' } // Новый!
+        { id: 'dragon', name: 'Дракончик', baseDps: 1000, cost: 50000, icon: '🐲' }
     ],
     itemNames: {
-        // Приставки (влияют только на название, но звучат круто)
         prefixes: [
-            "Сломанный", "Ржавый", "Ветхий", "Деревянный", "Тупой", // Мусор
-            "Железный", "Стальной", "Бронзовый", "Закаленный", "Острый", // Обычные
-            "Мифриловый", "Адамантиевый", "Рунический", "Эльфийский", "Гномий", // Редкие
-            "Пылающий", "Ледяной", "Ядовитый", "Грозовой", "Вампирский", // Стихийные
-            "Проклятый", "Святой", "Древний", "Эфирный", "Призрачный", // Магические
-            "Космический", "Божественный", "Демонический", "Пожиратель" // Легендарные
+            "Сломанный", "Ржавый", "Ветхий", "Деревянный", "Тупой",
+            "Железный", "Стальной", "Бронзовый", "Закаленный", "Острый",
+            "Мифриловый", "Адамантиевый", "Рунический", "Эльфийский", "Гномий",
+            "Пылающий", "Ледяной", "Ядовитый", "Грозовой", "Вампирский",
+            "Проклятый", "Святой", "Древний", "Эфирный", "Призрачный",
+            "Космический", "Божественный", "Демонический", "Пожиратель"
         ],
         weapons: [
             "Нож", "Кинжал", "Кортик",
@@ -47,10 +46,10 @@ const CONFIG = {
 let game = {
     gold: 0,
     lvl: 1,
-    kills: 0, // Убийства текущего уровня
-    inventory: [], // Список предметов
-    equipment: { weapon: null, armor: null }, // Надетые
-    allies: { militia: 0, archer: 0, mage: 0, knight: 0 } // Уровни союзников
+    kills: 0,
+    inventory: [],
+    equipment: { weapon: null, armor: null },
+    allies: { militia: 0, dog: 0, archer: 0, mercenary: 0, mage: 0, knight: 0, dragon: 0 }
 };
 
 let battle = {
@@ -63,33 +62,26 @@ let battle = {
     autoDps: 0
 };
 
-// Модальное окно (выбранный предмет)
 let selectedItem = null;
 
-// --- ОСНОВНАЯ ЛОГИКА ---
-
+// --- ЛОГИКА ИГРЫ ---
 const gameLogic = {
     init: function() {
-        this.load();
-        ui.renderAllies();
-        ui.renderInventory();
-        this.calcStats();
-        this.spawnMonster();
-        
-        // Циклы
-        setInterval(() => this.autoDamage(), 1000); // Авто урон
-        setInterval(() => this.save(), 30000);     // Сохранение
+        this.load(); // Загрузка и первичная инициализация UI внутри
+
+        // Запуск циклов
+        setInterval(() => this.autoDamage(), 1000);
+        setInterval(() => this.save(), 30000);
     },
 
     spawnMonster: function() {
-        // Каждый 5-й уровень - Босс
         battle.isBoss = (game.lvl % 5 === 0);
-        
+
         let hpMult = Math.pow(1.3, game.lvl);
         battle.maxHp = Math.floor(20 * hpMult);
 
         if (battle.isBoss) {
-            battle.maxHp *= 6; // Босс жирный
+            battle.maxHp *= 6;
             ui.setMonster("👹", true);
             this.startBossTimer();
         } else {
@@ -104,13 +96,13 @@ const gameLogic = {
 
     startBossTimer: function() {
         clearInterval(battle.bossTimer);
-        battle.bossTimeLeft = 30; // 30 секунд
+        battle.bossTimeLeft = 30;
         ui.showBossTimer(true);
-        
+
         battle.bossTimer = setInterval(() => {
             battle.bossTimeLeft--;
             ui.updateBossTimer(battle.bossTimeLeft);
-            
+
             if (battle.bossTimeLeft <= 0) {
                 this.failBoss();
             }
@@ -119,18 +111,16 @@ const gameLogic = {
 
     failBoss: function() {
         clearInterval(battle.bossTimer);
-        battle.hp = battle.maxHp; // Хил
+        battle.hp = battle.maxHp;
         ui.updateHp();
         tg.HapticFeedback.notificationOccurred('error');
         tg.showAlert("☠️ БОСС ПОБЕДИЛ!\nОн восстановил здоровье. Попробуй прокачаться!");
-        this.startBossTimer(); // Рестарт
+        this.startBossTimer();
     },
 
     onTap: function(e) {
         e.preventDefault();
         this.dealDamage(battle.clickDmg);
-        
-        // Визуал
         ui.spawnDmg(e.clientX, e.clientY, battle.clickDmg);
         ui.animateHit();
         tg.HapticFeedback.impactOccurred('light');
@@ -155,17 +145,14 @@ const gameLogic = {
         clearInterval(battle.bossTimer);
         ui.showBossTimer(false);
 
-        // Награда
         let gold = Math.floor(battle.maxHp / 4);
         if (battle.isBoss) gold *= 5;
         game.gold += gold;
 
-        // Дроп предмета (15% шанс)
         if (Math.random() < 0.15) this.generateLoot();
 
         tg.HapticFeedback.notificationOccurred('success');
 
-        // Прогрессия
         if (battle.isBoss) {
             game.lvl++;
             game.kills = 0;
@@ -176,27 +163,23 @@ const gameLogic = {
                 game.kills = 0;
             }
         }
-        
+
         ui.updateHeader();
         this.spawnMonster();
     },
 
     calcStats: function() {
-        // Клик: База (1) + Оружие
         let dmg = 1;
         if (game.equipment.weapon) dmg += game.equipment.weapon.val;
         battle.clickDmg = dmg;
 
-        // Авто: Сумма союзников + Бонус ранга + Броня (опционально)
         let dps = 0;
         CONFIG.allies.forEach(a => {
-            let lvl = game.allies[a.id];
-            let multiplier = 1 + Math.floor(lvl / 10); // Ранг: каждые 10 ур. x2 эффективность (примерно)
+            let lvl = game.allies[a.id] || 0;
+            let multiplier = 1 + Math.floor(lvl / 10);
             dps += (a.baseDps * lvl * multiplier);
         });
-        
-        // Броня может давать ХП, но для простоты пусть дает немного DPS или Клика
-        // Для этого примера броня дает бонус к клику (как "Сила")
+
         if (game.equipment.armor) battle.clickDmg += Math.floor(game.equipment.armor.val / 2);
 
         battle.autoDps = dps;
@@ -220,13 +203,12 @@ const gameLogic = {
 
         let isWeap = Math.random() > 0.5;
         let type = isWeap ? 'weapon' : 'armor';
-        
-        // Генератор имени
+
         let pre = CONFIG.itemNames.prefixes[Math.floor(Math.random()*CONFIG.itemNames.prefixes.length)];
-        let base = isWeap 
+        let base = isWeap
             ? CONFIG.itemNames.weapons[Math.floor(Math.random()*CONFIG.itemNames.weapons.length)]
             : CONFIG.itemNames.armors[Math.floor(Math.random()*CONFIG.itemNames.armors.length)];
-        
+
         let val = Math.floor((game.lvl * 2 + 5) * rarity.mult * (0.8 + Math.random()*0.4));
 
         let item = {
@@ -245,12 +227,12 @@ const gameLogic = {
 
     buyAlly: function(id) {
         let ally = CONFIG.allies.find(x => x.id === id);
-        let lvl = game.allies[id];
+        let lvl = game.allies[id] || 0;
         let cost = Math.floor(ally.cost * Math.pow(1.5, lvl));
 
         if (game.gold >= cost) {
             game.gold -= cost;
-            game.allies[id]++;
+            game.allies[id] = lvl + 1;
             this.calcStats();
             ui.renderAllies();
             tg.HapticFeedback.selectionChanged();
@@ -259,7 +241,6 @@ const gameLogic = {
         }
     },
 
-    // --- ИНВЕНТАРЬ ---
     openItem: function(item) {
         selectedItem = item;
         ui.showModal(item);
@@ -267,15 +248,12 @@ const gameLogic = {
 
     actionEquip: function() {
         if (!selectedItem) return;
-        // Снять текущий
         if (game.equipment[selectedItem.type]) {
             game.inventory.push(game.equipment[selectedItem.type]);
         }
-        // Удалить из инвентаря
         game.inventory = game.inventory.filter(i => i.id !== selectedItem.id);
-        // Надеть
         game.equipment[selectedItem.type] = selectedItem;
-        
+
         this.calcStats();
         ui.renderInventory();
         document.getElementById('item-modal').style.display = 'none';
@@ -285,7 +263,7 @@ const gameLogic = {
         if (!selectedItem) return;
         game.gold += selectedItem.price;
         game.inventory = game.inventory.filter(i => i.id !== selectedItem.id);
-        
+
         ui.updateHeader();
         ui.renderInventory();
         document.getElementById('item-modal').style.display = 'none';
@@ -308,35 +286,32 @@ const gameLogic = {
     load: function() {
         tg.CloudStorage.getItem('shadow_rpg_v1', (err, val) => {
             if (!err && val) {
-                let saved = JSON.parse(val);
+                try {
+                    let saved = JSON.parse(val);
+                    game = { ...game, ...saved };
 
-                // 1. Восстанавливаем базовые данные
-                game = { ...game, ...saved };
+                    if (!game.inventory) game.inventory = [];
+                    if (!game.equipment) game.equipment = { weapon: null, armor: null };
 
-                // 2. Фиксы для старых сохранений
-                if (!game.inventory) game.inventory = [];
-                if (!game.equipment) game.equipment = { weapon: null, armor: null };
-
-                // 3. !!! ВАЖНОЕ ИСПРАВЛЕНИЕ !!!
-                // Проверяем каждого союзника из CONFIG.
-                // Если его нет в загруженном сейве - добавляем с уровнем 0.
-                CONFIG.allies.forEach(a => {
-                    if (typeof game.allies[a.id] === 'undefined') {
-                        game.allies[a.id] = 0;
-                    }
-                });
+                    // Исправление союзников для старых сейвов
+                    CONFIG.allies.forEach(a => {
+                        if (typeof game.allies[a.id] === 'undefined') {
+                            game.allies[a.id] = 0;
+                        }
+                    });
+                } catch (e) { console.error("Save Error", e); }
             }
-            // Перерисовка интерфейса
+            // Инициализация после загрузки
             this.calcStats();
+            this.spawnMonster(); // Первый спавн монстра
             ui.renderAllies();
             ui.renderInventory();
+            ui.updateHeader();
         });
-    }
     }
 };
 
 // --- UI МЕНЕДЖЕР ---
-
 const ui = {
     updateHeader: function() {
         document.getElementById('ui-gold').innerText = game.gold;
@@ -344,7 +319,6 @@ const ui = {
         document.getElementById('ui-click-dmg').innerText = battle.clickDmg;
         document.getElementById('ui-auto-dps').innerText = battle.autoDps;
 
-        // Логика отображения KILLS или BOSS
         const killsEl = document.getElementById('ui-kills-info');
         if (battle.isBoss) {
             killsEl.innerText = "BOSS FIGHT";
@@ -396,10 +370,10 @@ const ui = {
         const list = document.getElementById('allies-list');
         list.innerHTML = "";
         CONFIG.allies.forEach(a => {
-            let lvl = game.allies[a.id];
+            let lvl = game.allies[a.id] || 0;
             let cost = Math.floor(a.cost * Math.pow(1.5, lvl));
             let rank = Math.floor(lvl / 10);
-            
+
             let div = document.createElement('div');
             div.className = 'ally-card';
             div.innerHTML = `
@@ -452,20 +426,27 @@ const ui = {
 
     showModal: function(item) {
         document.getElementById('modal-title').innerText = item.name;
-        document.getElementById('modal-title').className = `modal-title ${item.rarity.color}`; // цвет редкости
+        document.getElementById('modal-title').className = `modal-title ${item.rarity.color}`;
         document.getElementById('modal-stats').innerText = `Бонус: +${item.val} ${item.type==='weapon'?'Урона':'К защите'}`;
         document.getElementById('modal-price').innerText = item.price;
         document.getElementById('item-modal').style.display = 'flex';
     },
 
+    // --- ФУНКЦИЯ ПЕРЕКЛЮЧЕНИЯ ВКЛАДОК ---
     switchTab: function(id, btn) {
+        // 1. Убираем класс active у всех вкладок
         document.querySelectorAll('.tab-view').forEach(e => e.classList.remove('active'));
+
+        // 2. Убираем active у всех кнопок
         document.querySelectorAll('.nav-btn').forEach(e => e.classList.remove('active'));
+
+        // 3. Добавляем active нужной вкладке и кнопке
         document.getElementById('view-' + id).classList.add('active');
         btn.classList.add('active');
+
         tg.HapticFeedback.selectionChanged();
     }
 };
 
-// Запуск
+// Запуск игры
 gameLogic.init();
