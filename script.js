@@ -11,9 +11,8 @@ const CONFIG = {
         { id: 'demon', name: 'Демон', baseDps: 100, cost: 2500, icon: '👿' },
         { id: 'necromancer', name: 'Некромант', baseDps: 300, cost: 8500, icon: '🔮' },
         { id: 'lich', name: 'Лич', baseDps: 800, cost: 30000, icon: '🧟' },
-        { id: 'dragon', name: 'Костяной Дракон', baseDps: 2500, cost: 120000, icon: '🐉' }
+        { id: 'dragon', name: 'Дракон', baseDps: 2500, cost: 120000, icon: '🐉' }
     ],
-    // Настройки типов предметов
     slots: {
         weapon: { name: "Оружие", icon: "⚔️", statName: "Урон", unit: "" },
         armor: { name: "Броня", icon: "🛡️", statName: "Авто-ДПС", unit: "" },
@@ -22,11 +21,14 @@ const CONFIG = {
         boots: { name: "Сапоги", icon: "👢", statName: "Золото", unit: "%" },
         ring: { name: "Кольцо", icon: "💍", statName: "Скор.Атаки", unit: "%" }
     },
-    prefixes: [
-        "Сломанный", "Ржавый", "Обычный", "Добротный", "Редкий",
-        "Закаленный", "Мифриловый", "Рунический", "Проклятый",
-        "Древний", "Демонический", "Божественный", "Эфирный"
-    ]
+    prefixes: ["Сломанный", "Ржавый", "Редкий", "Закаленный", "Мифриловый", "Рунический", "Проклятый", "Древний", "Демонический", "Эфирный"],
+
+    // Новое: Конфигурация заклинаний
+    spells: {
+        bolt: { cost: 25, cooldown: 5, name: "Shadow Bolt" }, // 5 сек КД
+        haste: { cost: 40, cooldown: 20, name: "Bloodlust" }, // 20 сек КД
+        gold: { cost: 50, cooldown: 30, name: "Greed" } // 30 сек КД
+    }
 };
 
 // --- СОСТОЯНИЕ ИГРЫ ---
@@ -35,30 +37,35 @@ let game = {
     lvl: 1,
     kills: 0,
     inventory: [],
-    // 6 слотов экипировки
-    equipment: {
-        weapon: null, armor: null, helmet: null,
-        gloves: null, boots: null, ring: null
-    },
+    equipment: { weapon: null, armor: null, helmet: null, gloves: null, boots: null, ring: null },
     allies: { skeleton: 0, ghost: 0, acolyte: 0, demon: 0, necromancer: 0, lich: 0, dragon: 0 }
 };
 
 let battle = {
     hp: 20,
     maxHp: 20,
+    // Система маны
+    mana: 100,
+    maxMana: 100,
+
     isBoss: false,
     bossTimer: null,
     bossTimeLeft: 0,
 
-    // Динамические статы
     clickDmg: 1,
     autoDps: 0,
-    critChance: 0, // 0-100
-    critMult: 150, // 150% base
+    critChance: 0,
+    critMult: 150,
     goldMult: 1.0,
-    autoSpeed: 1.0 // 1.0 = 1 sec, 2.0 = 0.5 sec
+    autoSpeed: 1.0,
+
+    // Временные баффы от магии
+    buffSpeed: 1.0,
+    buffGold: 1.0
 };
 
+// Состояние кулдаунов заклинаний
+let spellCooldowns = { bolt: 0, haste: 0, gold: 0 };
 let autoDmgInterval = null;
 let selectedItem = null;
 
@@ -67,27 +74,93 @@ const gameLogic = {
     init: function() {
         this.load();
         this.resetAutoLoop();
+
+        // Цикл регенерации маны и проверки кулдаунов (10 раз в секунду)
+        setInterval(() => this.tickCore(), 100);
         setInterval(() => this.save(), 15000);
+    },
+
+    tickCore: function() {
+        // Реген маны: 2 ед в секунду (0.2 за тик)
+        if (battle.mana < battle.maxMana) {
+            battle.mana += 0.2;
+            if (battle.mana > battle.maxMana) battle.mana = battle.maxMana;
+        }
+
+        // Кулдауны
+        for (let key in spellCooldowns) {
+            if (spellCooldowns[key] > 0) {
+                spellCooldowns[key] -= 0.1;
+                if (spellCooldowns[key] < 0) spellCooldowns[key] = 0;
+            }
+        }
+
+        ui.updateBars();
+        ui.updateSpells();
+    },
+
+    castSpell: function(id) {
+        const spell = CONFIG.spells[id];
+
+        // Проверка: Хватает ли маны и КД
+        if (battle.mana < spell.cost || spellCooldowns[id] > 0) {
+            tg.HapticFeedback.notificationOccurred('error');
+            return;
+        }
+
+        // Трата ресурсов
+        battle.mana -= spell.cost;
+        spellCooldowns[id] = spell.cooldown;
+
+        // Эффекты
+        tg.HapticFeedback.impactOccurred('heavy');
+        ui.flashEffect(id);
+
+        if (id === 'bolt') {
+            // Урон = 5 * (DPS + Клик)
+            let dmg = Math.floor((battle.autoDps + battle.clickDmg) * 5);
+            if (dmg < 10) dmg = 10;
+            ui.spawnDmg(window.innerWidth / 2, window.innerHeight / 2 - 50, dmg, true);
+            this.dealDamage(dmg);
+        }
+        else if (id === 'haste') {
+            // Ускорение в 3 раза
+            battle.buffSpeed = 3.0;
+            this.resetAutoLoop();
+            setTimeout(() => {
+                battle.buffSpeed = 1.0;
+                this.resetAutoLoop();
+            }, 10000); // 10 сек
+            tg.showAlert("🩸 BLOODLUST!\nСкорость атаки повышена!");
+        }
+        else if (id === 'gold') {
+            // Золото x3
+            battle.buffGold = 3.0;
+            ui.updateHeader(); // обновить UI золота
+            setTimeout(() => {
+                battle.buffGold = 1.0;
+                ui.updateHeader();
+            }, 10000); // 10 сек
+            tg.showAlert("💰 GREED!\nЗолото x3!");
+        }
     },
 
     resetAutoLoop: function() {
         clearInterval(autoDmgInterval);
-        // Базовая скорость 1000мс. Кольца ускоряют.
-        // Максимальное ускорение до 200мс (5 ударов в сек)
-        let delay = Math.max(200, Math.floor(1000 / battle.autoSpeed));
+        // Базовая скорость / (Предметы * Бафф)
+        let totalSpeed = battle.autoSpeed * battle.buffSpeed;
+        let delay = Math.max(100, Math.floor(1000 / totalSpeed));
 
         autoDmgInterval = setInterval(() => this.autoDamage(), delay);
     },
 
     spawnMonster: function() {
         battle.isBoss = (game.lvl % 5 === 0);
-
-        // Ребаланс HP: Растет быстрее (1.45 степень) так как теперь больше предметов
         let hpBase = 25 * Math.pow(1.45, game.lvl - 1);
         battle.maxHp = Math.floor(hpBase);
 
         if (battle.isBoss) {
-            battle.maxHp *= 10; // Боссы жирнее
+            battle.maxHp *= 10;
             ui.setMonster("👹", true);
             this.startBossTimer();
         } else {
@@ -96,7 +169,7 @@ const gameLogic = {
         }
 
         battle.hp = battle.maxHp;
-        ui.updateHp();
+        ui.updateBars();
         ui.updateHeader();
     },
 
@@ -115,26 +188,26 @@ const gameLogic = {
     failBoss: function() {
         clearInterval(battle.bossTimer);
         battle.hp = battle.maxHp;
-        ui.updateHp();
+        ui.updateBars();
         tg.HapticFeedback.notificationOccurred('error');
-        tg.showAlert("☠️ ПОРАЖЕНИЕ\nВы не успели убить босса. Прокачайте героев или найдите лучшее оружие!");
+        tg.showAlert("☠️ ПОРАЖЕНИЕ\nБосс слишком силен!");
         this.startBossTimer();
     },
 
     onTap: function(e) {
         e.preventDefault();
 
-        // Расчет крита
+        // Мана реген за клик (+1)
+        if (battle.mana < battle.maxMana) battle.mana += 1;
+
         let isCrit = Math.random() * 100 < battle.critChance;
         let dmg = battle.clickDmg;
         if (isCrit) dmg = Math.floor(dmg * (battle.critMult / 100));
 
         this.dealDamage(dmg);
-
         ui.spawnDmg(e.clientX, e.clientY, dmg, isCrit);
         ui.animateHit();
-        if(isCrit) tg.HapticFeedback.impactOccurred('medium');
-        else tg.HapticFeedback.impactOccurred('light');
+        tg.HapticFeedback.impactOccurred(isCrit ? 'medium' : 'light');
     },
 
     autoDamage: function() {
@@ -149,22 +222,21 @@ const gameLogic = {
             battle.hp = 0;
             this.onDeath();
         }
-        ui.updateHp();
+        ui.updateBars();
     },
 
     onDeath: function() {
         clearInterval(battle.bossTimer);
         ui.showBossTimer(false);
 
-        // Расчет золота с учетом множителя сапог
         let goldBase = Math.floor(battle.maxHp / 5);
         if (goldBase < 1) goldBase = 1;
         if (battle.isBoss) goldBase *= 8;
 
-        let finalGold = Math.floor(goldBase * battle.goldMult);
+        // Учет баффов магии
+        let finalGold = Math.floor(goldBase * battle.goldMult * battle.buffGold);
         game.gold += finalGold;
 
-        // Шанс дропа 20%
         if (Math.random() < 0.20) this.generateLoot();
 
         tg.HapticFeedback.notificationOccurred('success');
@@ -179,47 +251,38 @@ const gameLogic = {
                 game.kills = 0;
             }
         }
-
         ui.updateHeader();
         this.spawnMonster();
     },
 
     calcStats: function() {
-        // 1. Сброс
         battle.clickDmg = 1;
         battle.autoDps = 0;
-        battle.critChance = 5; // Базовый 5%
-        battle.critMult = 150; // Базовый 150%
+        battle.critChance = 5;
+        battle.critMult = 150;
         battle.goldMult = 1.0;
         battle.autoSpeed = 1.0;
 
-        // 2. Статы от предметов
         const eq = game.equipment;
         if (eq.weapon) battle.clickDmg += eq.weapon.val;
-        if (eq.armor) battle.autoDps += eq.armor.val; // Броня дает базовый DPS
+        if (eq.armor) battle.autoDps += eq.armor.val;
         if (eq.helmet) battle.critChance += eq.helmet.val;
         if (eq.gloves) battle.critMult += eq.gloves.val;
         if (eq.boots) battle.goldMult += (eq.boots.val / 100);
         if (eq.ring) battle.autoSpeed += (eq.ring.val / 100);
 
-        // 3. Статы от союзников
         let allyDps = 0;
         CONFIG.allies.forEach(a => {
             let lvl = game.allies[a.id] || 0;
             if (lvl > 0) {
-                // Каждый 10 уровень дает x2 бонус
                 let mult = 1 + Math.floor(lvl / 10);
                 allyDps += (a.baseDps * lvl * mult);
             }
         });
         battle.autoDps += allyDps;
-
-        // Кап крит шанса 80%
         if (battle.critChance > 80) battle.critChance = 80;
 
-        // Перезапуск цикла авто-атаки если скорость изменилась
         this.resetAutoLoop();
-
         ui.updateHeader();
         ui.updateEquipUI();
     },
@@ -232,30 +295,24 @@ const gameLogic = {
             { id: 'legendary', name:'Легенда', color:'legendary', mult: 10 }
         ];
 
-        // Ролл редкости
         let rnd = Math.random();
         let rarity = rarities[0];
-        if (rnd > 0.96) rarity = rarities[3]; // 4%
-        else if (rnd > 0.85) rarity = rarities[2]; // 11%
-        else if (rnd > 0.65) rarity = rarities[1]; // 20%
+        if (rnd > 0.96) rarity = rarities[3];
+        else if (rnd > 0.85) rarity = rarities[2];
+        else if (rnd > 0.65) rarity = rarities[1];
 
-        // Ролл типа предмета (6 типов)
         const types = Object.keys(CONFIG.slots);
         let type = types[Math.floor(Math.random() * types.length)];
-
         let prefix = CONFIG.prefixes[Math.floor(Math.random() * CONFIG.prefixes.length)];
         let slotName = CONFIG.slots[type].name;
 
-        // Генерация значения стата
-        // Формула: (Уровень * Множитель) + Рандом
         let baseVal = (game.lvl * 2) + 2;
         let val = Math.floor(baseVal * rarity.mult * (0.9 + Math.random() * 0.4));
 
-        // Корректировка значений для % статов, чтобы не было слишком много
-        if (type === 'helmet') val = Math.max(1, Math.floor(val / 10)); // Крит шанс (1-5% за шмотку)
-        if (type === 'gloves') val = Math.floor(val / 2); // Крит урон (высокий)
-        if (type === 'boots') val = Math.floor(val / 1.5); // Золото %
-        if (type === 'ring') val = Math.max(1, Math.floor(val / 5)); // Скорость %
+        if (type === 'helmet') val = Math.max(1, Math.floor(val / 10));
+        if (type === 'gloves') val = Math.floor(val / 2);
+        if (type === 'boots') val = Math.floor(val / 1.5);
+        if (type === 'ring') val = Math.max(1, Math.floor(val / 5));
 
         let item = {
             id: Date.now() + Math.random(),
@@ -265,7 +322,6 @@ const gameLogic = {
             rarity: rarity,
             price: Math.floor(val * 50 * rarity.mult)
         };
-
         game.inventory.push(item);
         ui.renderInventory();
         tg.showAlert(`🔮 Найден предмет!\n${item.name}`);
@@ -274,8 +330,7 @@ const gameLogic = {
     buyAlly: function(id) {
         let ally = CONFIG.allies.find(x => x.id === id);
         let lvl = game.allies[id] || 0;
-        let cost = Math.floor(ally.cost * Math.pow(1.6, lvl)); // Увеличил множитель цены с 1.5 до 1.6 для баланса
-
+        let cost = Math.floor(ally.cost * Math.pow(1.6, lvl));
         if (game.gold >= cost) {
             game.gold -= cost;
             game.allies[id] = lvl + 1;
@@ -287,26 +342,14 @@ const gameLogic = {
         }
     },
 
-    openItem: function(item) {
-        selectedItem = item;
-        ui.showModal(item);
-    },
+    openItem: function(item) { selectedItem = item; ui.showModal(item); },
 
     actionEquip: function() {
         if (!selectedItem) return;
-
         let slot = selectedItem.type;
-        // Если слот занят, возвращаем старый предмет в инвентарь
-        if (game.equipment[slot]) {
-            game.inventory.push(game.equipment[slot]);
-        }
-
-        // Убираем новый предмет из инвентаря
+        if (game.equipment[slot]) game.inventory.push(game.equipment[slot]);
         game.inventory = game.inventory.filter(i => i.id !== selectedItem.id);
-
-        // Надеваем
         game.equipment[slot] = selectedItem;
-
         this.calcStats();
         ui.renderInventory();
         document.getElementById('item-modal').style.display = 'none';
@@ -317,7 +360,6 @@ const gameLogic = {
         if (!selectedItem) return;
         game.gold += selectedItem.price;
         game.inventory = game.inventory.filter(i => i.id !== selectedItem.id);
-
         ui.updateHeader();
         ui.renderInventory();
         document.getElementById('item-modal').style.display = 'none';
@@ -333,24 +375,15 @@ const gameLogic = {
         }
     },
 
-    save: function() {
-        tg.CloudStorage.setItem('shadow_rpg_v3', JSON.stringify(game));
-    },
-
+    save: function() { tg.CloudStorage.setItem('shadow_rpg_v6', JSON.stringify(game)); },
     load: function() {
-        // v3 - новая версия сейва из-за новых предметов
-        tg.CloudStorage.getItem('shadow_rpg_v3', (err, val) => {
+        tg.CloudStorage.getItem('shadow_rpg_v6', (err, val) => {
             if (!err && val) {
                 try {
                     let saved = JSON.parse(val);
                     game = { ...game, ...saved };
-
-                    // Миграция структур если сейв битый
-                    if (!game.equipment.helmet) game.equipment = {
-                        weapon: null, armor: null, helmet: null,
-                        gloves: null, boots: null, ring: null
-                    };
-                } catch (e) { console.error("Save Error", e); }
+                    if (!game.equipment.helmet) game.equipment = { weapon: null, armor: null, helmet: null, gloves: null, boots: null, ring: null };
+                } catch (e) { console.error(e); }
             }
             this.calcStats();
             this.spawnMonster();
@@ -361,7 +394,7 @@ const gameLogic = {
     }
 };
 
-// --- UI МЕНЕДЖЕР ---
+// --- UI ---
 const ui = {
     updateHeader: function() {
         document.getElementById('ui-gold').innerText = this.formatNum(game.gold);
@@ -369,18 +402,16 @@ const ui = {
         document.getElementById('ui-click-dmg').innerText = this.formatNum(battle.clickDmg);
         document.getElementById('ui-auto-dps').innerText = this.formatNum(battle.autoDps);
 
-        const killsEl = document.getElementById('ui-kills-info');
-        if (battle.isBoss) {
-            killsEl.innerText = "BOSS FIGHT";
-            killsEl.style.color = "#ef4444";
-        } else {
-            killsEl.innerText = `Kills: ${game.kills}/10`;
-            killsEl.style.color = "#94a3b8";
-        }
+        let killsText = battle.isBoss ? "BOSS FIGHT" : `Kills: ${game.kills}/10`;
+        let killsEl = document.getElementById('ui-kills-info');
+        killsEl.innerText = killsText;
+        killsEl.style.color = battle.isBoss ? "#ef4444" : "#94a3b8";
 
-        // Обновление сводки статов в табе героя
-        document.getElementById('stats-summary').innerText =
-            `Шанс крита: ${battle.critChance}% | Крит.урон: ${battle.critMult}% | Золото: x${battle.goldMult.toFixed(1)} | Скор: x${battle.autoSpeed.toFixed(1)}`;
+        // Показ активных баффов
+        let info = `Крит: ${battle.critChance}%`;
+        if (battle.buffSpeed > 1) info += ` | 🩸 SPD x${battle.buffSpeed}`;
+        if (battle.buffGold > 1) info += ` | 💰 GOLD x${battle.buffGold}`;
+        document.getElementById('stats-summary').innerText = info;
     },
 
     formatNum: function(num) {
@@ -389,11 +420,50 @@ const ui = {
         return num;
     },
 
-    updateHp: function() {
-        let pct = Math.max(0, (battle.hp / battle.maxHp) * 100);
-        document.getElementById('hp-fill').style.width = pct + "%";
+    updateBars: function() {
+        // HP
+        let hpPct = Math.max(0, (battle.hp / battle.maxHp) * 100);
+        document.getElementById('hp-fill').style.width = hpPct + "%";
         document.getElementById('hp-cur').innerText = this.formatNum(Math.floor(battle.hp));
         document.getElementById('hp-max').innerText = this.formatNum(battle.maxHp);
+
+        // MANA
+        let manaPct = Math.max(0, (battle.mana / battle.maxMana) * 100);
+        document.getElementById('mana-fill').style.width = manaPct + "%";
+        document.getElementById('mana-cur').innerText = Math.floor(battle.mana);
+    },
+
+    updateSpells: function() {
+        const updateBtn = (id) => {
+            const btn = document.getElementById('btn-spell-' + id);
+            const overlay = document.getElementById('cd-' + id);
+            const spell = CONFIG.spells[id];
+
+            // Если КД есть
+            if (spellCooldowns[id] > 0) {
+                let pct = (spellCooldowns[id] / spell.cooldown) * 100;
+                overlay.style.height = pct + "%";
+                btn.classList.add('disabled');
+            } else {
+                overlay.style.height = "0%";
+                // Если нет маны
+                if (battle.mana < spell.cost) btn.classList.add('disabled');
+                else btn.classList.remove('disabled');
+            }
+        };
+        updateBtn('bolt');
+        updateBtn('haste');
+        updateBtn('gold');
+    },
+
+    flashEffect: function(id) {
+        const f = document.getElementById('spell-flash');
+        if (id === 'bolt') f.style.background = "radial-gradient(circle, rgba(139, 92, 246, 0.6), transparent)";
+        if (id === 'haste') f.style.background = "radial-gradient(circle, rgba(239, 68, 68, 0.4), transparent)";
+        if (id === 'gold') f.style.background = "radial-gradient(circle, rgba(245, 158, 11, 0.4), transparent)";
+
+        f.style.opacity = 1;
+        setTimeout(() => f.style.opacity = 0, 300);
     },
 
     setMonster: function(emoji, isBoss) {
@@ -402,13 +472,8 @@ const ui = {
         m.style.fontSize = isBoss ? "170px" : "140px";
     },
 
-    showBossTimer: function(show) {
-        document.getElementById('boss-timer-box').style.display = show ? 'block' : 'none';
-    },
-
-    updateBossTimer: function(val) {
-        document.getElementById('boss-timer-fill').style.width = (val / 30 * 100) + "%";
-    },
+    showBossTimer: function(show) { document.getElementById('boss-timer-box').style.display = show ? 'block' : 'none'; },
+    updateBossTimer: function(val) { document.getElementById('boss-timer-fill').style.width = (val / 30 * 100) + "%"; },
 
     animateHit: function() {
         const m = document.getElementById('monster');
@@ -420,20 +485,15 @@ const ui = {
         let el = document.createElement('div');
         el.className = isCrit ? 'dmg-number dmg-crit' : 'dmg-number';
         el.innerText = isCrit ? "💥 " + val : val;
-
-        // Рандомный разброс
         let rX = (Math.random() - 0.5) * 40;
-
         el.style.left = (x - 20 + rX) + 'px';
         el.style.top = (y - 50) + 'px';
         document.body.appendChild(el);
-
         if (isCrit) {
             const flash = document.getElementById('crit-flash');
             flash.style.opacity = 1;
             setTimeout(()=> flash.style.opacity = 0, 100);
         }
-
         setTimeout(() => el.remove(), 800);
     },
 
@@ -443,7 +503,6 @@ const ui = {
         CONFIG.allies.forEach(a => {
             let lvl = game.allies[a.id] || 0;
             let cost = Math.floor(a.cost * Math.pow(1.6, lvl));
-
             let div = document.createElement('div');
             div.className = 'ally-card';
             div.innerHTML = `
@@ -466,24 +525,18 @@ const ui = {
         game.inventory.forEach(item => {
             let el = document.createElement('div');
             el.className = `inv-item ${item.rarity.color}`;
-            el.innerHTML = `
-                ${CONFIG.slots[item.type].icon}
-                <div class="inv-stat">${item.val}</div>
-            `;
+            el.innerHTML = `${CONFIG.slots[item.type].icon}<div class="inv-stat">${item.val}</div>`;
             el.onclick = () => gameLogic.openItem(item);
             grid.appendChild(el);
         });
     },
 
     updateEquipUI: function() {
-        // Проходимся по всем 6 слотам
         Object.keys(CONFIG.slots).forEach(slotKey => {
             const item = game.equipment[slotKey];
             const meta = CONFIG.slots[slotKey];
-
             const elSlot = document.getElementById(`slot-${slotKey}`);
             const elStat = document.getElementById(`stat-${slotKey}`);
-
             if (item) {
                 elSlot.className = `equip-slot filled ${item.rarity.color}`;
                 elSlot.innerText = meta.icon;
@@ -498,14 +551,10 @@ const ui = {
 
     showModal: function(item) {
         const meta = CONFIG.slots[item.type];
-
         document.getElementById('modal-title').innerText = item.name;
         document.getElementById('modal-title').className = `modal-title ${item.rarity.color}`;
         document.getElementById('modal-type').innerText = `${item.rarity.name} ${meta.name}`;
-
-        document.getElementById('modal-stats').innerText =
-            `Бонус: +${item.val}${meta.unit} (${meta.statName})`;
-
+        document.getElementById('modal-stats').innerText = `Бонус: +${item.val}${meta.unit} (${meta.statName})`;
         document.getElementById('modal-price').innerText = item.price;
         document.getElementById('item-modal').style.display = 'flex';
     },
